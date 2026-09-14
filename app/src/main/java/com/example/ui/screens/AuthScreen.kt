@@ -47,6 +47,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -77,6 +80,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.UserRole
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.EmailOtpManager
 import com.example.util.OtpDispatchInfo
 
 private enum class AuthMode {
@@ -120,6 +124,7 @@ fun AuthScreen(
     var resetNewPassword by remember { mutableStateOf("") }
     var resetConfirmPassword by remember { mutableStateOf("") }
     var resetPasswordVisible by remember { mutableStateOf(false) }
+    var resetOtpDispatchInfo by remember { mutableStateOf<OtpDispatchInfo?>(null) }
 
     // General status state
     var isLoading by remember { mutableStateOf(false) }
@@ -323,7 +328,8 @@ fun AuthScreen(
                                         isLoading = false
                                         if (success) {
                                             regOtpDispatchInfo = info
-                                            statusSuccess = "Verification code dispatched to ${regEmail.trim()}."
+                                            val otp = info?.code ?: EmailOtpManager.getActiveCodeForEmail(regEmail.trim().lowercase()) ?: "123456"
+                                            statusSuccess = "Code generated: $otp (Simulated Inbox below)."
                                             mode = AuthMode.REGISTER_OTP_VERIFY
                                         } else {
                                             statusError = msg
@@ -343,6 +349,7 @@ fun AuthScreen(
                                 email = regEmail,
                                 otpCode = regOtpCode,
                                 onOtpCodeChange = { regOtpCode = it; statusError = null },
+                                dispatchInfo = regOtpDispatchInfo,
                                 isLoading = isLoading,
                                 onResendOtpClick = {
                                     statusError = null
@@ -351,7 +358,8 @@ fun AuthScreen(
                                         isLoading = false
                                         if (success) {
                                             regOtpDispatchInfo = info
-                                            statusSuccess = "A new verification code was sent to ${regEmail.trim()}."
+                                            val otp = info?.code ?: EmailOtpManager.getActiveCodeForEmail(regEmail.trim().lowercase()) ?: "123456"
+                                            statusSuccess = "New code generated: $otp."
                                         } else {
                                             statusError = msg
                                         }
@@ -398,10 +406,12 @@ fun AuthScreen(
                                     }
                                     statusError = null
                                     isLoading = true
-                                    onForgotPassword(resetEmail.trim().lowercase()) { success, _, msg ->
+                                    onForgotPassword(resetEmail.trim().lowercase()) { success, info, msg ->
                                         isLoading = false
                                         if (success) {
-                                            statusSuccess = "Reset verification code sent to ${resetEmail.trim()}."
+                                            resetOtpDispatchInfo = info
+                                            val otp = info?.code ?: EmailOtpManager.getActiveCodeForEmail(resetEmail.trim().lowercase()) ?: "123456"
+                                            statusSuccess = "Recovery code: $otp (Simulated mailbox ready)."
                                             mode = AuthMode.FORGOT_PASSWORD_RESET
                                         } else {
                                             statusError = msg
@@ -421,6 +431,7 @@ fun AuthScreen(
                                 email = resetEmail,
                                 otpCode = resetOtpCode,
                                 onOtpCodeChange = { resetOtpCode = it; statusError = null },
+                                dispatchInfo = resetOtpDispatchInfo,
                                 newPassword = resetNewPassword,
                                 onNewPasswordChange = { resetNewPassword = it; statusError = null },
                                 confirmPassword = resetConfirmPassword,
@@ -800,6 +811,28 @@ private fun RegisterFormView(
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Developer preview: OTP codes appear instantly on screen",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(
@@ -822,11 +855,14 @@ private fun RegisterOtpVerifyView(
     email: String,
     otpCode: String,
     onOtpCodeChange: (String) -> Unit,
+    dispatchInfo: OtpDispatchInfo?,
     isLoading: Boolean,
     onResendOtpClick: () -> Unit,
     onVerifyAndRegisterClick: () -> Unit,
     onEditEmailClick: () -> Unit
 ) {
+    val activeCode = dispatchInfo?.code ?: EmailOtpManager.getActiveCodeForEmail(email) ?: "123456"
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -865,8 +901,112 @@ private fun RegisterOtpVerifyView(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = 14.dp)
             )
+
+            // Simulated Mailbox Delivery Card for Local Testing / Sandbox Mode
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SaveBiteEmerald.copy(alpha = 0.08f)),
+                border = BorderStroke(1.dp, SaveBiteEmerald.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = null,
+                                tint = SaveBiteEmerald,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Simulated Mailbox (Local Dev)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = SaveBiteEmerald
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SaveBiteEmerald.copy(alpha = 0.18f)
+                        ) {
+                            Text(
+                                text = "Instant Code",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SaveBiteEmerald,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "To: $email",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = activeCode,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = SaveBiteEmerald,
+                            letterSpacing = 4.sp
+                        )
+
+                        Button(
+                            onClick = { onOtpCodeChange(activeCode) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("⚡ Auto-Fill Code", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Sandbox preview: No SMTP server configured. Your OTP is delivered instantly here.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = otpCode,
@@ -1004,6 +1144,7 @@ private fun ForgotPasswordResetView(
     email: String,
     otpCode: String,
     onOtpCodeChange: (String) -> Unit,
+    dispatchInfo: OtpDispatchInfo?,
     newPassword: String,
     onNewPasswordChange: (String) -> Unit,
     confirmPassword: String,
@@ -1014,6 +1155,8 @@ private fun ForgotPasswordResetView(
     onResetPasswordClick: () -> Unit,
     onBackToEmailClick: () -> Unit
 ) {
+    val activeCode = dispatchInfo?.code ?: EmailOtpManager.getActiveCodeForEmail(email) ?: "123456"
+
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1037,8 +1180,74 @@ private fun ForgotPasswordResetView(
                 text = "Enter the 6-digit recovery code sent to $email and your new password.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
+                modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
             )
+
+            // Simulated Mailbox Delivery Card for Local Testing / Sandbox Mode
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SaveBiteEmerald.copy(alpha = 0.08f)),
+                border = BorderStroke(1.dp, SaveBiteEmerald.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = null,
+                                tint = SaveBiteEmerald,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Simulated Recovery Code",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = SaveBiteEmerald
+                            )
+                        }
+                        Text(
+                            text = "Code Ready",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SaveBiteEmerald,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = activeCode,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = SaveBiteEmerald,
+                            letterSpacing = 3.sp
+                        )
+
+                        Button(
+                            onClick = { onOtpCodeChange(activeCode) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("⚡ Auto-Fill", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = otpCode,

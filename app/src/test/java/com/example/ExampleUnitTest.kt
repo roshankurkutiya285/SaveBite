@@ -39,5 +39,24 @@ class ExampleUnitTest {
     assertTrue("Verification should succeed with correct password", PasswordHasher.verifyPassword(password, hash))
     assertFalse("Verification should fail with wrong password", PasswordHasher.verifyPassword("WrongPass@999", hash))
   }
+
+  @Test
+  fun testEmailOtpGenerationAndVerification() {
+    val email = "roshankurkutiya285@gmail.com"
+    val res = com.example.util.EmailOtpManager.dispatchOtp(email)
+    assertTrue("Dispatch should succeed", res.isSuccess)
+    val info = res.getOrNull()
+    assertNotNull("Info should not be null", info)
+    val code = info!!.code
+    assertEquals(6, code.length)
+
+    // Retrieval of active code
+    val activeCode = com.example.util.EmailOtpManager.getActiveCodeForEmail(email)
+    assertEquals(code, activeCode)
+
+    // Verification with code
+    val verifyRes = com.example.util.EmailOtpManager.verifyOtp(email, code)
+    assertTrue("Verification should succeed with generated code", verifyRes.isSuccess)
+  }
 }
 
