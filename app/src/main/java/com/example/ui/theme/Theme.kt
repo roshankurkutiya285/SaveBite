@@ -60,7 +60,7 @@ fun buildDarkColorScheme(palette: AppColorPalette): ColorScheme {
 
 @Composable
 fun SaveBiteTheme(
-    palette: AppColorPalette = AppColorPalette.FRESH_EMERALD,
+    palette: AppColorPalette = AppColorPalette.ROYAL_SAFFRON,
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,

@@ -6,7 +6,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Curated color palette styles for SaveBite.
+ * Curated color palette styles celebrating Indian culinary vibrancy & aesthetics.
  */
 enum class AppColorPalette(
     val id: String,
@@ -30,20 +30,42 @@ enum class AppColorPalette(
     val surfaceVariantDark: Color,
     val borderDark: Color
 ) {
-    FRESH_EMERALD(
-        id = "fresh_emerald",
-        displayName = "Fresh Emerald",
-        subtitle = "Lush botanical mint & golden harvest",
-        primaryColor = Color(0xFF059669),
+    ROYAL_SAFFRON(
+        id = "royal_saffron",
+        displayName = "Royal Saffron",
+        subtitle = "Aromatic Kesari saffron & turmeric marigold",
+        primaryColor = Color(0xFFE05322), // Saffron / Kesari
+        primaryLight = Color(0xFFFB923C),
+        primaryDark = Color(0xFF9A3412),
+        primaryContainer = Color(0xFFFFEDD5),
+        onPrimaryContainer = Color(0xFF7C2D12),
+        secondaryColor = Color(0xFFD97706), // Marigold amber
+        secondaryLight = Color(0xFFFDE68A),
+        secondaryDark = Color(0xFF92400E),
+        secondaryContainer = Color(0xFFFEF3C7),
+        onSecondaryContainer = Color(0xFF78350F),
+        canvasLight = Color(0xFFFAF7F4),
+        surfaceVariantLight = Color(0xFFF5EFEB),
+        borderLight = Color(0xFFEBE0D8),
+        canvasDark = Color(0xFF140F0D),
+        surfaceDark = Color(0xFF201815),
+        surfaceVariantDark = Color(0xFF2E221E),
+        borderDark = Color(0xFF45332C)
+    ),
+    PEACOCK_EMERALD(
+        id = "peacock_emerald",
+        displayName = "Peacock & Tulsi",
+        subtitle = "Sacred botanical mint & royal peacock teal",
+        primaryColor = Color(0xFF0D7A53),
         primaryLight = Color(0xFF34D399),
         primaryDark = Color(0xFF064E3B),
         primaryContainer = Color(0xFFDCFCE7),
         onPrimaryContainer = Color(0xFF064E3B),
-        secondaryColor = Color(0xFFF59E0B),
-        secondaryLight = Color(0xFFFDE68A),
-        secondaryDark = Color(0xFFB45309),
-        secondaryContainer = Color(0xFFFEF3C7),
-        onSecondaryContainer = Color(0xFF78350F),
+        secondaryColor = Color(0xFFE05322),
+        secondaryLight = Color(0xFFFED7AA),
+        secondaryDark = Color(0xFFC2410C),
+        secondaryContainer = Color(0xFFFFEDD5),
+        onSecondaryContainer = Color(0xFF7C2D12),
         canvasLight = Color(0xFFF7FAF8),
         surfaceVariantLight = Color(0xFFEEF4F0),
         borderLight = Color(0xFFE0EAE3),
@@ -52,71 +74,49 @@ enum class AppColorPalette(
         surfaceVariantDark = Color(0xFF1A2C25),
         borderDark = Color(0xFF284439)
     ),
-    SUNSET_HARVEST(
-        id = "sunset_harvest",
-        displayName = "Sunset Bistro",
-        subtitle = "Warm artisan terracotta & golden crust",
-        primaryColor = Color(0xFFE05322),
-        primaryLight = Color(0xFFFB923C),
-        primaryDark = Color(0xFF9A3412),
-        primaryContainer = Color(0xFFFFEDD5),
-        onPrimaryContainer = Color(0xFF7C2D12),
+    KOLKATA_TERRACOTTA(
+        id = "kolkata_terracotta",
+        displayName = "Kulhad Terracotta",
+        subtitle = "Artisanal clay chai & fragrant roasted spices",
+        primaryColor = Color(0xFFB43E19),
+        primaryLight = Color(0xFFF97316),
+        primaryDark = Color(0xFF7C2D12),
+        primaryContainer = Color(0xFFFFEAD9),
+        onPrimaryContainer = Color(0xFF67220C),
+        secondaryColor = Color(0xFF0F766E),
+        secondaryLight = Color(0xFF99F6E4),
+        secondaryDark = Color(0xFF115E59),
+        secondaryContainer = Color(0xFFCCFBF1),
+        onSecondaryContainer = Color(0xFF134E4A),
+        canvasLight = Color(0xFFFAF6F2),
+        surfaceVariantLight = Color(0xFFF3ECE6),
+        borderLight = Color(0xFFE6DBD3),
+        canvasDark = Color(0xFF15100E),
+        surfaceDark = Color(0xFF231B18),
+        surfaceVariantDark = Color(0xFF322723),
+        borderDark = Color(0xFF4A3A35)
+    ),
+    MITHAI_ROSE(
+        id = "mithai_rose",
+        displayName = "Mithai Gulab",
+        subtitle = "Royal Gulab Jamun crimson & pistachio gold",
+        primaryColor = Color(0xFFBE185D),
+        primaryLight = Color(0xFFF472B6),
+        primaryDark = Color(0xFF831843),
+        primaryContainer = Color(0xFFFCE7F3),
+        onPrimaryContainer = Color(0xFF700732),
         secondaryColor = Color(0xFFD97706),
         secondaryLight = Color(0xFFFDE68A),
         secondaryDark = Color(0xFF92400E),
         secondaryContainer = Color(0xFFFEF3C7),
         onSecondaryContainer = Color(0xFF78350F),
-        canvasLight = Color(0xFFFAF7F5),
-        surfaceVariantLight = Color(0xFFF5EFEB),
-        borderLight = Color(0xFFEBE0D8),
-        canvasDark = Color(0xFF140F0D),
-        surfaceDark = Color(0xFF201815),
-        surfaceVariantDark = Color(0xFF2E221E),
-        borderDark = Color(0xFF45332C)
-    ),
-    MIDNIGHT_BERRY(
-        id = "midnight_berry",
-        displayName = "Midnight Berry",
-        subtitle = "Vibrant electric indigo & honey nectar",
-        primaryColor = Color(0xFF4F46E5),
-        primaryLight = Color(0xFF818CF8),
-        primaryDark = Color(0xFF312E81),
-        primaryContainer = Color(0xFFEEF2FF),
-        onPrimaryContainer = Color(0xFF1E1B4B),
-        secondaryColor = Color(0xFFF59E0B),
-        secondaryLight = Color(0xFFFDE68A),
-        secondaryDark = Color(0xFFB45309),
-        secondaryContainer = Color(0xFFFEF3C7),
-        onSecondaryContainer = Color(0xFF78350F),
-        canvasLight = Color(0xFFF8F9FC),
-        surfaceVariantLight = Color(0xFFEEF1F8),
-        borderLight = Color(0xFFE0E5F2),
-        canvasDark = Color(0xFF0E111B),
-        surfaceDark = Color(0xFF161B2B),
-        surfaceVariantDark = Color(0xFF20263D),
-        borderDark = Color(0xFF323B5E)
-    ),
-    BOTANICAL_SAGE(
-        id = "botanical_sage",
-        displayName = "Nordic Sage",
-        subtitle = "Artisan forest olive & almond earth",
-        primaryColor = Color(0xFF2D6A4F),
-        primaryLight = Color(0xFF52B788),
-        primaryDark = Color(0xFF1B4332),
-        primaryContainer = Color(0xFFD8F3DC),
-        onPrimaryContainer = Color(0xFF081C15),
-        secondaryColor = Color(0xFFB07D62),
-        secondaryLight = Color(0xFFE6CCB2),
-        secondaryDark = Color(0xFF7F5539),
-        secondaryContainer = Color(0xFFF7EDE2),
-        onSecondaryContainer = Color(0xFF4A3525),
-        canvasLight = Color(0xFFF7FAF7),
-        surfaceVariantLight = Color(0xFFEFF4EF),
-        borderLight = Color(0xFFE1EAE1),
-        canvasDark = Color(0xFF0F1813),
-        surfaceDark = Color(0xFF17241D),
-        surfaceVariantDark = Color(0xFF22352B),
-        borderDark = Color(0xFF355243)
+        canvasLight = Color(0xFFFAF7F8),
+        surfaceVariantLight = Color(0xFFF5EDF0),
+        borderLight = Color(0xFFEBDFE4),
+        canvasDark = Color(0xFF160F13),
+        surfaceDark = Color(0xFF241820),
+        surfaceVariantDark = Color(0xFF34222E),
+        borderDark = Color(0xFF4E3345)
     )
 }
 
@@ -211,7 +211,7 @@ val SaveBiteTextMuted: Color
     get() = MaterialTheme.colorScheme.outline
 
 // Universal Badge & Status Colors
-val SaveBiteBadgeRed = Color(0xFFEF4444)
+val SaveBiteBadgeRed = Color(0xFFDC2626)
 val SaveBiteBadgeRedBg = Color(0xFFFEE2E2)
-val SaveBiteBadgeGreen = Color(0xFF10B981)
+val SaveBiteBadgeGreen = Color(0xFF16A34A)
 val SaveBiteBadgeGreenBg = Color(0xFFDCFCE7)

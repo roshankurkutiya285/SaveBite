@@ -63,6 +63,7 @@ import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
 import com.example.util.SoundHapticsManager
+import com.example.util.formatRupees
 
 @Composable
 fun ImpactScreen(
@@ -142,11 +143,11 @@ fun ImpactScreen(
                     Button(
                         onClick = {
                             val shareText = """
-                                🌍 My SaveBite Food Rescue Impact:
+                                🇮🇳 My SaveBite Indian Food Rescue Impact:
                                 • ${totalMealsRescued} surplus meals rescued
                                 • ${"%.1f".format(totalCo2Saved)} kg CO₂ prevented from landfill
-                                • $${"%.2f".format(totalMoneySaved)} saved on delicious food
-                                Join the movement to stop food waste with SaveBite!
+                                • ${formatRupees(totalMoneySaved)} saved on authentic delicious food
+                                Join the mission to eliminate food waste with SaveBite!
                             """.trimIndent()
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
@@ -287,8 +288,8 @@ fun ImpactScreen(
             ) {
                 ImpactMetricCard(
                     title = "Money Saved",
-                    value = "$${"%.2f".format(totalMoneySaved)}",
-                    unit = "USD",
+                    value = formatRupees(totalMoneySaved),
+                    unit = "INR",
                     icon = Icons.Default.MonetizationOn,
                     tint = SaveBiteAmber,
                     modifier = Modifier.weight(1f)
@@ -317,46 +318,46 @@ fun ImpactScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 EcoBadgeRow(
-                    badgeName = "Seedling Saver",
-                    description = "Rescue your very first surplus bag from a local business",
+                    badgeName = "Annadata Starter",
+                    description = "Rescue your very first surplus meal from a local dhaba, bakery, or kitchen",
                     isUnlocked = totalMealsRescued >= 1,
                     progress = (totalMealsRescued / 1f).coerceIn(0f, 1f),
                     iconEmoji = "🌱",
                     onClick = {
-                        onBadgeClick("Seedling Saver", "Rescue your very first surplus bag from a local business", "🌱", totalMealsRescued >= 1)
+                        onBadgeClick("Annadata Starter", "Rescue your very first surplus meal from a local dhaba, bakery, or kitchen", "🌱", totalMealsRescued >= 1)
                     }
                 )
 
                 EcoBadgeRow(
-                    badgeName = "Waste Warrior",
-                    description = "Rescue 5 surplus bags from entering landfill",
+                    badgeName = "Bhojan Rakshak",
+                    description = "Rescue 5 surplus meals from entering landfill waste",
                     isUnlocked = totalMealsRescued >= 5,
                     progress = (totalMealsRescued / 5f).coerceIn(0f, 1f),
                     iconEmoji = "🛡️",
                     onClick = {
-                        onBadgeClick("Waste Warrior", "Rescue 5 surplus bags from entering landfill", "🛡️", totalMealsRescued >= 5)
+                        onBadgeClick("Bhojan Rakshak", "Rescue 5 surplus meals from entering landfill waste", "🛡️", totalMealsRescued >= 5)
                     }
                 )
 
                 EcoBadgeRow(
-                    badgeName = "Carbon Crusader",
-                    description = "Prevent at least 15 kg of greenhouse emissions",
+                    badgeName = "Green India Hero",
+                    description = "Prevent at least 15 kg of greenhouse emissions across Indian cities",
                     isUnlocked = totalCo2Saved >= 15.0,
                     progress = (totalCo2Saved.toFloat() / 15f).coerceIn(0f, 1f),
                     iconEmoji = "🌍",
                     onClick = {
-                        onBadgeClick("Carbon Crusader", "Prevent at least 15 kg of greenhouse emissions", "🌍", totalCo2Saved >= 15.0)
+                        onBadgeClick("Green India Hero", "Prevent at least 15 kg of greenhouse emissions across Indian cities", "🌍", totalCo2Saved >= 15.0)
                     }
                 )
 
                 EcoBadgeRow(
-                    badgeName = "Community Pillar",
-                    description = "Support 3 different local bakeries, cafes, and grocers",
+                    badgeName = "Desi Flavours Champion",
+                    description = "Support 3 different sweet shops, south tiffins, and dhabas",
                     isUnlocked = completedOrders.map { it.merchantId }.distinct().size >= 3,
                     progress = (completedOrders.map { it.merchantId }.distinct().size / 3f).coerceIn(0f, 1f),
-                    iconEmoji = "🥐",
+                    iconEmoji = "🪔",
                     onClick = {
-                        onBadgeClick("Community Pillar", "Support 3 different local bakeries, cafes, and grocers", "🥐", completedOrders.map { it.merchantId }.distinct().size >= 3)
+                        onBadgeClick("Desi Flavours Champion", "Support 3 different sweet shops, south tiffins, and dhabas", "🪔", completedOrders.map { it.merchantId }.distinct().size >= 3)
                     }
                 )
             }

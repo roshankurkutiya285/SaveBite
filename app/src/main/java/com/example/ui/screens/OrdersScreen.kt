@@ -68,6 +68,7 @@ import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteBadgeRed
 import com.example.ui.theme.SaveBiteBadgeRedBg
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.formatRupees
 
 @Composable
 fun OrdersScreen(
@@ -286,7 +287,7 @@ fun OrdersScreen(
                                         ) {
                                             Text(text = "Amount Paid:", style = MaterialTheme.typography.bodySmall)
                                             Text(
-                                                text = "$${"%.2f".format(order.totalPrice)}",
+                                                text = formatRupees(order.totalPrice),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = SaveBiteEmerald
@@ -298,7 +299,7 @@ fun OrdersScreen(
                                         ) {
                                             Text(text = "You Saved:", style = MaterialTheme.typography.bodySmall)
                                             Text(
-                                                text = "$${"%.2f".format(order.totalSavings)}",
+                                                text = formatRupees(order.totalSavings),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -468,7 +469,7 @@ fun OrdersScreen(
                                     }
 
                                     Text(
-                                        text = if (isCancelled) "$0.00 refunded" else "$${"%.2f".format(order.totalPrice)} (Saved $${"%.2f".format(order.totalSavings)})",
+                                        text = if (isCancelled) "₹0 refunded" else "${formatRupees(order.totalPrice)} (Saved ${formatRupees(order.totalSavings)})",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold
                                     )

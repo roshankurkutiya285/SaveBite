@@ -15,6 +15,7 @@ import com.example.data.model.UserRole
 import com.example.data.repository.SaveBiteRepository
 import com.example.ui.theme.AppColorPalette
 import com.example.ui.theme.AppThemeMode
+import com.example.util.formatRupees
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,9 +48,9 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     private val _currentUser = MutableStateFlow(
         UserEntity(
             id = "user_customer_elena",
-            email = "elena.green@savebite.com",
-            name = "Elena Rostova",
-            phone = "+1 (555) 349-8102",
+            email = "aarav.sharma@savebite.in",
+            name = "Aarav Sharma",
+            phone = "+91 98450 23145",
             role = UserRole.CUSTOMER
         )
     )
@@ -60,7 +61,7 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     val celebrationEvent: StateFlow<CelebrationEvent?> = _celebrationEvent.asStateFlow()
 
     // Theme & Appearance Customization
-    private val _colorPalette = MutableStateFlow(AppColorPalette.FRESH_EMERALD)
+    private val _colorPalette = MutableStateFlow(AppColorPalette.ROYAL_SAFFRON)
     val colorPalette: StateFlow<AppColorPalette> = _colorPalette.asStateFlow()
 
     private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
@@ -205,7 +206,7 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
                     title = "Surplus Rescued!",
                     subtitle = "Order ${order.orderNumber} (${order.packageTitle}) is successfully verified and collected.",
                     iconEmoji = "🌱",
-                    statHighlight = "🎉 Avoided ${"%.1f".format(order.co2SavedKg)} kg CO₂ • Saved $${"%.2f".format(order.totalSavings)}",
+                    statHighlight = "🎉 Avoided ${"%.1f".format(order.co2SavedKg)} kg CO₂ • Saved ${formatRupees(order.totalSavings)}",
                     isBadgeUnlock = false
                 )
                 onResult(true, "Collected: ${order.packageTitle} (${order.orderNumber})")
@@ -250,33 +251,33 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
             UserRole.CUSTOMER -> {
                 _currentUser.value = UserEntity(
                     id = "user_customer_elena",
-                    email = "elena.green@savebite.com",
-                    name = "Elena Rostova",
-                    phone = "+1 (555) 349-8102",
+                    email = "aarav.sharma@savebite.in",
+                    name = "Aarav Sharma",
+                    phone = "+91 98450 23145",
                     role = UserRole.CUSTOMER
                 )
-                _snackbarMessage.value = "Switched to Consumer Mode (Elena Rostova)"
+                _snackbarMessage.value = "Switched to Consumer Mode (Aarav Sharma)"
             }
             UserRole.BAKERY, UserRole.RESTAURANT -> {
                 _currentUser.value = UserEntity(
                     id = "user_merchant_artisan",
-                    email = "manager@artisansourdough.com",
-                    name = "Chef Marco Valenti (Le Petit Pain)",
-                    phone = "+1 (555) 782-9014",
+                    email = "vikramaditya@bikanersweets.in",
+                    name = "Chef Vikramaditya Singh (Bikaner Sweets)",
+                    phone = "+91 98110 54321",
                     role = role
                 )
                 _currentTab.value = SaveBiteTab.MERCHANT_HUB
-                _snackbarMessage.value = "Switched to Merchant Mode (Chef Marco Valenti)"
+                _snackbarMessage.value = "Switched to Merchant Mode (Chef Vikramaditya Singh)"
             }
             UserRole.NGO -> {
                 _currentUser.value = UserEntity(
                     id = "user_ngo_rescue",
-                    email = "coord@cityfoodrescue.org",
-                    name = "David Chen (City Food Rescue)",
-                    phone = "+1 (555) 670-3341",
+                    email = "ananya@robinhoodarmy.org",
+                    name = "Ananya Mukherjee (Robin Hood Army)",
+                    phone = "+91 99301 77654",
                     role = UserRole.NGO
                 )
-                _snackbarMessage.value = "Switched to NGO Partner Mode (David Chen)"
+                _snackbarMessage.value = "Switched to NGO Partner Mode (Robin Hood Army)"
             }
             else -> {
                 _currentUser.value = _currentUser.value.copy(role = role)

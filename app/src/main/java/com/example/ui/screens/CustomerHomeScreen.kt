@@ -64,6 +64,8 @@ import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteBadgeRed
 import com.example.ui.theme.SaveBiteBadgeRedBg
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.IndianDietaryBadge
+import com.example.util.formatRupees
 
 enum class ExploreViewMode {
     LIST,
@@ -175,7 +177,7 @@ fun CustomerHomeScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .testTag("home_search_input"),
-            placeholder = { Text("Search bakery, meals, grocers...") },
+            placeholder = { Text("Search biryani, sweets, tiffins, dhabas...") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -216,12 +218,12 @@ fun CustomerHomeScreen(
 
             items(PackageCategory.values()) { category ->
                 val emoji = when (category) {
-                    PackageCategory.BAKERY -> "🥐 Bakery"
-                    PackageCategory.MEALS -> "🥗 Meals"
-                    PackageCategory.GROCERIES -> "🥑 Groceries"
-                    PackageCategory.PRODUCE -> "🍎 Produce"
-                    PackageCategory.VEGAN -> "🌱 Vegan"
-                    PackageCategory.SWEETS -> "🧁 Desserts"
+                    PackageCategory.BAKERY -> "🥐 Bakery & Chai"
+                    PackageCategory.MEALS -> "🍛 Curries & Thalis"
+                    PackageCategory.SWEETS -> "🪔 Desi Mithai"
+                    PackageCategory.GROCERIES -> "🛒 Desi Ration"
+                    PackageCategory.PRODUCE -> "🥑 Sabzi Mandi"
+                    PackageCategory.VEGAN -> "🌱 Pure Veg / Jain"
                 }
                 FilterChip(
                     selected = selectedCategory == category,
@@ -234,8 +236,8 @@ fun CustomerHomeScreen(
                 )
             }
 
-            // Dietary tags
-            items(listOf("Vegetarian", "Vegan", "Gluten-Free", "Nut-Free")) { tag ->
+            // Indian dietary tags
+            items(listOf("Pure Veg", "Jain Friendly", "Eggless", "Halal", "Non-Veg", "Organic")) { tag ->
                 FilterChip(
                     selected = selectedDietaryTag == tag,
                     onClick = {
@@ -349,6 +351,7 @@ fun SurplusPackageCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -370,6 +373,8 @@ fun SurplusPackageCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        IndianDietaryBadge(isVeg = isVeg)
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = merchant.businessName,
                             style = MaterialTheme.typography.titleMedium,
@@ -522,7 +527,7 @@ fun SurplusPackageCard(
                         )
                     } else {
                         Text(
-                            text = "$${"%.2f".format(pkg.originalPrice)}",
+                            text = formatRupees(pkg.originalPrice),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             textDecoration = TextDecoration.LineThrough
@@ -531,7 +536,7 @@ fun SurplusPackageCard(
                         Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
-                            text = "$${"%.2f".format(pkg.discountedPrice)}",
+                            text = formatRupees(pkg.discountedPrice),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = SaveBiteEmerald

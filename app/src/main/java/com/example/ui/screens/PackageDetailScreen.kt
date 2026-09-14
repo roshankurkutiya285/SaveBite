@@ -58,6 +58,8 @@ import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.IndianDietaryBadge
+import com.example.util.formatRupees
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,14 +117,14 @@ fun PackageDetailScreen(
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "$${"%.2f".format(totalDiscounted)}",
+                                text = formatRupees(totalDiscounted),
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = SaveBiteEmerald
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "$${"%.2f".format(totalOriginal)}",
+                                text = formatRupees(totalOriginal),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                 textDecoration = TextDecoration.LineThrough
@@ -161,6 +163,8 @@ fun PackageDetailScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
+            val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
+
             // Hero Banner Card
             Surface(
                 shape = RoundedCornerShape(24.dp),
@@ -185,6 +189,10 @@ fun PackageDetailScreen(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IndianDietaryBadge(isVeg = isVeg, showLabel = true)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = pkg.title,
                             style = MaterialTheme.typography.titleMedium,
@@ -192,7 +200,7 @@ fun PackageDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Save $${"%.2f".format(totalSavings)} today",
+                            text = "Save ${formatRupees(totalSavings)} today",
                             style = MaterialTheme.typography.bodySmall,
                             color = SaveBiteEmerald,
                             fontWeight = FontWeight.SemiBold

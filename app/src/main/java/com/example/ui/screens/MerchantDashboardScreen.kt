@@ -63,6 +63,7 @@ import com.example.data.model.OrderStatus
 import com.example.data.model.PackageCategory
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.formatRupees
 
 @Composable
 fun MerchantDashboardScreen(
@@ -220,7 +221,7 @@ fun MerchantDashboardScreen(
             ) {
                 MetricSummaryCard(
                     title = "Revenue",
-                    value = "$${"%.2f".format(totalRevenue)}",
+                    value = formatRupees(totalRevenue),
                     icon = Icons.Default.MonetizationOn,
                     iconTint = SaveBiteEmerald,
                     modifier = Modifier.weight(1f)
@@ -381,7 +382,7 @@ fun MerchantDashboardScreen(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${pkg.pickupWindow} • $${"%.2f".format(pkg.discountedPrice)} (Was $${"%.2f".format(pkg.originalPrice)})",
+                            text = "${pkg.pickupWindow} • ${formatRupees(pkg.discountedPrice)} (Was ${formatRupees(pkg.originalPrice)})",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
@@ -470,7 +471,7 @@ fun CreatePackageDialog(
                     OutlinedTextField(
                         value = origPrice,
                         onValueChange = { origPrice = it },
-                        label = { Text("Original ($)") },
+                        label = { Text("Original (₹)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -478,7 +479,7 @@ fun CreatePackageDialog(
                         value = if (isDonation) "0.00" else discPrice,
                         onValueChange = { discPrice = it },
                         enabled = !isDonation,
-                        label = { Text("Rescue ($)") },
+                        label = { Text("Rescue (₹)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )

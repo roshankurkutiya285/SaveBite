@@ -61,6 +61,8 @@ import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.IndianDietaryBadge
+import com.example.util.formatRupees
 import kotlin.math.sqrt
 
 @Composable
@@ -356,11 +358,16 @@ fun InteractiveSurplusMap(
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = merchant.businessName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IndianDietaryBadge(isVeg = isVeg)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = merchant.businessName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.Star,
@@ -410,7 +417,7 @@ fun InteractiveSurplusMap(
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "$${"%.2f".format(pkg.discountedPrice)}",
+                                    text = formatRupees(pkg.discountedPrice),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SaveBiteEmerald

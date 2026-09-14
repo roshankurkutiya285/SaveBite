@@ -269,7 +269,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                     }
                     SaveBiteTab.MERCHANT_HUB -> {
                         MerchantDashboardScreen(
-                            merchantName = "Le Petit Pain Artisan Bakery",
+                            merchantName = "Bikaner Sweets & Namkeen Hub",
                             packages = allPackages.filter { it.merchantId == "merchant_artisan_bakery" },
                             merchantOrders = merchantOrders,
                             onRedeemCode = { code ->
