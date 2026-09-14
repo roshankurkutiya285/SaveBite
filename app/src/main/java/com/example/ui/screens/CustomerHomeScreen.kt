@@ -60,6 +60,7 @@ import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.data.model.PackageCategory
 import com.example.ui.components.InteractiveSurplusMap
+import com.example.ui.components.SurplusPackageCardSkeleton
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteBadgeRed
 import com.example.ui.theme.SaveBiteBadgeRedBg
@@ -287,30 +288,36 @@ fun CustomerHomeScreen(
                     }
                 }
 
-                // Empty state
+                // Empty state or Skeleton Loading state
                 if (filteredPackages.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(48.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(text = "🌱", fontSize = 44.sp)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "No surplus offers matching criteria",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Try clearing filters to see nearby restaurants, cafes, and bakeries.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
+                    if (packages.isEmpty() && searchQuery.isBlank() && selectedCategory == null) {
+                        items(3) {
+                            SurplusPackageCardSkeleton()
+                        }
+                    } else {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(48.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "🌱", fontSize = 44.sp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No surplus offers matching criteria",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Try clearing filters to see nearby restaurants, cafes, and bakeries.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }

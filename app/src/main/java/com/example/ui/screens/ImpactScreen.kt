@@ -73,7 +73,6 @@ fun ImpactScreen(
     currentThemeMode: AppThemeMode,
     onSelectColorPalette: (AppColorPalette) -> Unit,
     onSelectThemeMode: (AppThemeMode) -> Unit,
-    onSwitchRole: (UserRole) -> Unit,
     onBadgeClick: (badgeName: String, desc: String, emoji: String, isUnlocked: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -363,7 +362,7 @@ fun ImpactScreen(
             }
         }
 
-        // Active Profile & Multi-Stakeholder Switcher
+        // Active Account & Security Profile
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -372,76 +371,86 @@ fun ImpactScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Active Session & Multi-Stakeholder Switcher",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Logged in as: ${currentUser.name} (${currentUser.role.name})",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SaveBiteEmerald,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "Switch Persona for Demo & Testing:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Account & Security Profile",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SaveBiteEmerald.copy(alpha = 0.12f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = SaveBiteEmerald,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "VERIFIED",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SaveBiteEmerald
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Text(
+                        text = currentUser.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = currentUser.email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Button(
-                            onClick = { onSwitchRole(UserRole.CUSTOMER) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentUser.role == UserRole.CUSTOMER) SaveBiteEmerald else MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Consumer",
-                                color = if (currentUser.role == UserRole.CUSTOMER) Color.White else MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.labelSmall
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = SaveBiteEmerald,
+                                modifier = Modifier.size(16.dp)
                             )
-                        }
-
-                        Button(
-                            onClick = { onSwitchRole(UserRole.BAKERY) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentUser.role == UserRole.BAKERY || currentUser.role == UserRole.RESTAURANT) SaveBiteEmerald else MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Merchant",
-                                color = if (currentUser.role == UserRole.BAKERY || currentUser.role == UserRole.RESTAURANT) Color.White else MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-
-                        Button(
-                            onClick = { onSwitchRole(UserRole.NGO) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentUser.role == UserRole.NGO) SaveBiteEmerald else MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Charity NGO",
-                                color = if (currentUser.role == UserRole.NGO) Color.White else MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Role: ${currentUser.role.name} • RBAC Enforced",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Protected by PBKDF2 with HMAC-SHA256 & JWT Sessions",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
                         }
                     }
                 }

@@ -29,4 +29,19 @@ interface UserDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUsers(users: List<UserEntity>)
+
+    @Query("UPDATE users SET password = :newPasswordHash WHERE id = :userId")
+    suspend fun updatePassword(userId: String, newPasswordHash: String)
+
+    @Query("UPDATE users SET name = :name, phone = :phone, avatarUrl = :avatarUrl WHERE id = :userId")
+    suspend fun updateProfile(userId: String, name: String, phone: String, avatarUrl: String)
+
+    @Query("UPDATE users SET failedLoginAttempts = :attempts, lockoutUntilMs = :lockoutUntilMs WHERE id = :userId")
+    suspend fun updateLockout(userId: String, attempts: Int, lockoutUntilMs: Long)
+
+    @Query("UPDATE users SET isEmailVerified = 1 WHERE id = :userId")
+    suspend fun markEmailVerified(userId: String)
+
+    @Query("DELETE FROM users WHERE id = :userId")
+    suspend fun deleteUser(userId: String)
 }

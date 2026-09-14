@@ -49,13 +49,15 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         }
 
         val userId = "user_${UUID.randomUUID().toString().take(8)}"
+        val hashedPassword = com.example.util.PasswordHasher.hashPassword(cleanPass)
         val newUser = UserEntity(
             id = userId,
             email = cleanEmail,
-            password = cleanPass,
+            password = hashedPassword,
             name = cleanName,
             phone = cleanPhone,
-            role = role
+            role = role,
+            isEmailVerified = true
         )
         db.userDao().insertUser(newUser)
 
@@ -95,11 +97,81 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         val user = db.userDao().getUserByEmailOrPhone(cleanId)
             ?: return Result.failure(IllegalArgumentException("No account found for '$cleanId'. Please register first."))
 
-        if (user.password.isNotBlank() && user.password != cleanPass && cleanPass != "password123" && cleanPass != "demo123") {
-            return Result.failure(IllegalArgumentException("Incorrect password. Please verify and try again."))
+        val now = System.currentTimeMillis()
+        if (user.lockoutUntilMs > now) {
+            val remainingSec = ((user.lockoutUntilMs - now) / 1000).coerceAtLeast(1)
+            return Result.failure(IllegalStateException("Account is temporarily locked due to repeated failed logins. Please try again in $remainingSec seconds or reset password."))
+        }
+
+        val isValidPassword = com.example.util.PasswordHasher.verifyPassword(cleanPass, user.password)
+        if (!isValidPassword) {
+            val newAttempts = user.failedLoginAttempts + 1
+            if (newAttempts >= 5) {
+                val lockoutDuration = 15 * 60 * 1000L // 15 min
+                db.userDao().updateLockout(user.id, newAttempts, now + lockoutDuration)
+                return Result.failure(IllegalStateException("Account locked for 15 minutes after 5 failed login attempts. Please reset your password or try again later."))
+            } else {
+                db.userDao().updateLockout(user.id, newAttempts, 0L)
+                val remainingAttempts = 5 - newAttempts
+                return Result.failure(IllegalArgumentException("Incorrect password. $remainingAttempts attempt(s) remaining before lockout."))
+            }
+        }
+
+        // Login successful: clear lockout & attempt counter
+        if (user.failedLoginAttempts > 0 || user.lockoutUntilMs > 0L) {
+            db.userDao().updateLockout(user.id, 0, 0L)
+        }
+
+        // Seamlessly rehash password if legacy
+        if (com.example.util.PasswordHasher.needsRehash(user.password)) {
+            val newHash = com.example.util.PasswordHasher.hashPassword(cleanPass)
+            db.userDao().updatePassword(user.id, newHash)
         }
 
         return Result.success(user)
+    }
+
+    suspend fun resetPassword(email: String, newPassword: String): Result<Unit> {
+        val cleanEmail = email.trim().lowercase()
+        val cleanPass = newPassword.trim()
+        if (cleanPass.length < 6) {
+            return Result.failure(IllegalArgumentException("New password must be at least 6 characters long."))
+        }
+        val user = db.userDao().getUserByEmail(cleanEmail)
+            ?: return Result.failure(IllegalArgumentException("No registered account found for '$cleanEmail'."))
+
+        val hashed = com.example.util.PasswordHasher.hashPassword(cleanPass)
+        db.userDao().updatePassword(user.id, hashed)
+        db.userDao().updateLockout(user.id, 0, 0L)
+        return Result.success(Unit)
+    }
+
+    suspend fun updateProfile(userId: String, name: String, phone: String, avatarUrl: String): Result<Unit> {
+        val cleanName = name.trim()
+        val cleanPhone = phone.trim()
+        if (cleanName.isBlank()) return Result.failure(IllegalArgumentException("Name cannot be blank."))
+        db.userDao().updateProfile(userId, cleanName, cleanPhone, avatarUrl)
+        return Result.success(Unit)
+    }
+
+    suspend fun changePassword(userId: String, currentPass: String, newPass: String): Result<Unit> {
+        val user = db.userDao().getUserByEmailOrPhone(userId)
+        val targetUser = user ?: run {
+            val all = db.userDao().getUserCount()
+            if (all == 0) null else null
+        }
+        val cleanNew = newPass.trim()
+        if (cleanNew.length < 6) {
+            return Result.failure(IllegalArgumentException("New password must be at least 6 characters long."))
+        }
+        val hashed = com.example.util.PasswordHasher.hashPassword(cleanNew)
+        db.userDao().updatePassword(userId, hashed)
+        return Result.success(Unit)
+    }
+
+    suspend fun deleteAccount(userId: String): Result<Unit> {
+        db.userDao().deleteUser(userId)
+        return Result.success(Unit)
     }
 
     suspend fun loginWithEmailOtp(
@@ -121,13 +193,15 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
                 .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
                 .ifBlank { "SaveBite Rescuer" }
 
+            val randomSecret = UUID.randomUUID().toString()
             val newUser = UserEntity(
                 id = "user_${UUID.randomUUID().toString().take(8)}",
                 email = cleanEmail,
-                password = "otp_verified_${UUID.randomUUID().toString().take(6)}",
+                password = com.example.util.PasswordHasher.hashPassword(randomSecret),
                 name = namePart,
                 phone = "+91 98${Random.nextInt(10000000, 99999999)}",
-                role = role
+                role = role,
+                isEmailVerified = true
             )
             db.userDao().insertUser(newUser)
             user = newUser
@@ -228,7 +302,7 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         return Result.success(order.copy(status = OrderStatus.COMPLETED, completedAt = System.currentTimeMillis()))
     }
 
-    suspend fun cancelOrder(orderId: String): Result<OrderEntity> {
+    suspend fun cancelOrder(orderId: String): Result<Pair<OrderEntity, com.example.util.RazorpayRefund?>> {
         val order = db.orderDao().getOrderDirect(orderId)
             ?: return Result.failure(IllegalArgumentException("Order not found."))
 
@@ -238,7 +312,16 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
 
         db.orderDao().updateOrderStatus(orderId, OrderStatus.CANCELLED)
         db.foodPackageDao().incrementStock(order.packageId, order.quantity)
-        return Result.success(order.copy(status = OrderStatus.CANCELLED))
+
+        val refund = if (order.totalPrice > 0.0) {
+            com.example.util.RazorpayPaymentManager.initiateRefund(
+                orderId = order.id,
+                paymentId = order.razorpayPaymentId,
+                amountRupees = order.totalPrice
+            )
+        } else null
+
+        return Result.success(Pair(order.copy(status = OrderStatus.CANCELLED), refund))
     }
 
     fun getAllOrders(): Flow<List<OrderEntity>> = db.orderDao().getAllOrders()

@@ -1,15 +1,16 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,17 +20,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -43,20 +44,18 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -78,135 +77,95 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.UserRole
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.OtpDispatchInfo
 
-data class DemoAccount(
-    val title: String,
-    val roleName: String,
-    val email: String,
-    val pass: String,
-    val role: UserRole,
-    val icon: ImageVector,
-    val badgeColor: Color
-)
+private enum class AuthMode {
+    SIGN_IN,
+    REGISTER_FORM,
+    REGISTER_OTP_VERIFY,
+    FORGOT_PASSWORD_EMAIL,
+    FORGOT_PASSWORD_RESET
+}
 
 @Composable
 fun AuthScreen(
     onLogin: (String, String, (Boolean, String) -> Unit) -> Unit,
-    onRegister: (String, String, String, String, UserRole, (Boolean, String) -> Unit) -> Unit,
-    onQuickLogin: (UserRole) -> Unit,
-    onSendOtp: ((String, (Boolean, com.example.util.OtpDispatchInfo?, String) -> Unit) -> Unit)? = null,
-    onVerifyOtp: ((String, String, UserRole, (Boolean, String) -> Unit) -> Unit)? = null,
-    activeOtpDispatch: com.example.util.OtpDispatchInfo? = null,
-    activeJwtToken: String? = null,
+    onSendOtp: (String, (Boolean, OtpDispatchInfo?, String) -> Unit) -> Unit,
+    onRegisterWithOtp: (String, String, String, String, UserRole, String, (Boolean, String) -> Unit) -> Unit,
+    onForgotPassword: (String, (Boolean, OtpDispatchInfo?, String) -> Unit) -> Unit,
+    onResetPasswordWithOtp: (String, String, String, (Boolean, String) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Login, 1: Email OTP, 2: Register
+    var mode by remember { mutableStateOf(AuthMode.SIGN_IN) }
 
-    // Login state
+    // Sign In form fields
     var loginIdentifier by remember { mutableStateOf("") }
     var loginPassword by remember { mutableStateOf("") }
     var loginPasswordVisible by remember { mutableStateOf(false) }
 
-    // Email OTP state
-    var otpEmail by remember { mutableStateOf("aarav.sharma@savebite.in") }
-    var otpCode by remember { mutableStateOf("") }
-    var otpRole by remember { mutableStateOf(UserRole.CUSTOMER) }
-    var localOtpInfo by remember { mutableStateOf<com.example.util.OtpDispatchInfo?>(null) }
-    var isSendingOtp by remember { mutableStateOf(false) }
+    // Registration form fields
+    var regName by remember { mutableStateOf("") }
+    var regEmail by remember { mutableStateOf("") }
+    var regPhone by remember { mutableStateOf("") }
+    var regPassword by remember { mutableStateOf("") }
+    var regConfirmPassword by remember { mutableStateOf("") }
+    var regRole by remember { mutableStateOf(UserRole.CUSTOMER) }
+    var regPasswordVisible by remember { mutableStateOf(false) }
+    var regOtpCode by remember { mutableStateOf("") }
+    var regOtpDispatchInfo by remember { mutableStateOf<OtpDispatchInfo?>(null) }
 
-    // Register state
-    var registerName by remember { mutableStateOf("") }
-    var registerEmail by remember { mutableStateOf("") }
-    var registerPhone by remember { mutableStateOf("") }
-    var registerPassword by remember { mutableStateOf("") }
-    var registerPasswordVisible by remember { mutableStateOf(false) }
-    var selectedRole by remember { mutableStateOf(UserRole.CUSTOMER) }
+    // Forgot Password form fields
+    var resetEmail by remember { mutableStateOf("") }
+    var resetOtpCode by remember { mutableStateOf("") }
+    var resetNewPassword by remember { mutableStateOf("") }
+    var resetConfirmPassword by remember { mutableStateOf("") }
+    var resetPasswordVisible by remember { mutableStateOf(false) }
 
-    // Loading & feedback
+    // General status state
     var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
-
-    val demoAccounts = remember {
-        listOf(
-            DemoAccount(
-                title = "Aarav Sharma",
-                roleName = "Customer",
-                email = "aarav.sharma@savebite.in",
-                pass = "password123",
-                role = UserRole.CUSTOMER,
-                icon = Icons.Default.Person,
-                badgeColor = Color(0xFF10B981)
-            ),
-            DemoAccount(
-                title = "Bikaner Sweets",
-                roleName = "Merchant",
-                email = "vikramaditya@bikanersweets.in",
-                pass = "password123",
-                role = UserRole.BAKERY,
-                icon = Icons.Default.Store,
-                badgeColor = Color(0xFFF59E0B)
-            ),
-            DemoAccount(
-                title = "Rajat Verma",
-                roleName = "Pickup Partner",
-                email = "rajat.courier@savebite.in",
-                pass = "password123",
-                role = UserRole.PICKUP_AGENT,
-                icon = Icons.Default.LocalShipping,
-                badgeColor = Color(0xFF3B82F6)
-            ),
-            DemoAccount(
-                title = "Rajesh Verma",
-                roleName = "Admin HQ",
-                email = "admin@savebite.in",
-                pass = "password123",
-                role = UserRole.ADMIN,
-                icon = Icons.Default.AdminPanelSettings,
-                badgeColor = Color(0xFF8B5CF6)
-            ),
-            DemoAccount(
-                title = "Robin Hood Army",
-                roleName = "NGO Partner",
-                email = "ananya@robinhoodarmy.org",
-                pass = "password123",
-                role = UserRole.NGO,
-                icon = Icons.Default.VolunteerActivism,
-                badgeColor = Color(0xFFEC4899)
-            )
-        )
-    }
+    var statusError by remember { mutableStateOf<String?>(null) }
+    var statusSuccess by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        SaveBiteEmerald.copy(alpha = 0.07f),
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background
+                    )
+                )
+            )
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header / Brand Hero
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Surface(
-                    shape = CircleShape,
-                    color = SaveBiteEmerald.copy(alpha = 0.12f),
-                    modifier = Modifier.size(76.dp)
+                Spacer(modifier = Modifier.height(36.dp))
+
+                // Brand Hero Header
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(SaveBiteEmerald.copy(alpha = 0.12f))
+                        .border(2.dp, SaveBiteEmerald.copy(alpha = 0.3f), CircleShape)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Eco,
-                            contentDescription = "SaveBite Logo",
-                            tint = SaveBiteEmerald,
-                            modifier = Modifier.size(42.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Eco,
+                        contentDescription = "SaveBite Logo",
+                        tint = SaveBiteEmerald,
+                        modifier = Modifier.size(40.dp)
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
                     text = "SaveBite India",
@@ -216,896 +175,296 @@ fun AuthScreen(
                 )
 
                 Text(
-                    text = "Zero Food Waste • High Value Rescues • Direct Impact",
+                    text = "Surplus Food Rescue & Community Marketplace",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // Quick Demo Account Selector (High convenience for reviewers)
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp)
+            // Error or Success Banner
+            if (statusError != null) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = statusError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(14.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
+            if (statusSuccess != null) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = SaveBiteEmerald.copy(alpha = 0.15f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.padding(14.dp)
                         ) {
-                            Text(
-                                text = "⚡ Quick Demo Logins",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
-                            Text(
-                                text = "Tap any role to enter",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(demoAccounts) { demo ->
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    tonalElevation = 2.dp,
-                                    modifier = Modifier
-                                        .clickable {
-                                            errorMessage = null
-                                            successMessage = null
-                                            loginIdentifier = demo.email
-                                            loginPassword = demo.pass
-                                            onQuickLogin(demo.role)
-                                        }
-                                        .testTag("demo_login_${demo.role.name.lowercase()}")
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = demo.badgeColor.copy(alpha = 0.2f),
-                                            modifier = Modifier.size(26.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = demo.icon,
-                                                    contentDescription = null,
-                                                    tint = demo.badgeColor,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(
-                                                text = demo.roleName,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = demo.title,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Auth Tabs: Password Login vs Email OTP vs Register
-            item {
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = SaveBiteEmerald,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = SaveBiteEmerald
-                        )
-                    },
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .fillMaxWidth()
-                ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = {
-                            selectedTab = 0
-                            errorMessage = null
-                            successMessage = null
-                        },
-                        text = {
-                            Text(
-                                text = "Password",
-                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 14.sp
-                            )
-                        },
-                        modifier = Modifier.testTag("auth_tab_login")
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = {
-                            selectedTab = 1
-                            errorMessage = null
-                            successMessage = null
-                        },
-                        text = {
-                            Text(
-                                text = "Email OTP",
-                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 14.sp
-                            )
-                        },
-                        modifier = Modifier.testTag("auth_tab_otp")
-                    )
-                    Tab(
-                        selected = selectedTab == 2,
-                        onClick = {
-                            selectedTab = 2
-                            errorMessage = null
-                            successMessage = null
-                        },
-                        text = {
-                            Text(
-                                text = "Register",
-                                fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 14.sp
-                            )
-                        },
-                        modifier = Modifier.testTag("auth_tab_register")
-                    )
-                }
-            }
-
-            // Error / Success Banners
-            if (errorMessage != null) {
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = errorMessage ?: "",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-            }
-
-            if (successMessage != null) {
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFD1FAE5),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = successMessage ?: "",
-                            color = Color(0xFF065F46),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-            }
-
-            // Form Fields
-            if (selectedTab == 0) {
-                // LOGIN FORM
-                item {
-                    OutlinedTextField(
-                        value = loginIdentifier,
-                        onValueChange = { loginIdentifier = it },
-                        label = { Text("Email Address or Phone") },
-                        placeholder = { Text("e.g. aarav.sharma@savebite.in") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("login_email_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = loginPassword,
-                        onValueChange = { loginPassword = it },
-                        label = { Text("Password") },
-                        placeholder = { Text("Enter password") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { loginPasswordVisible = !loginPasswordVisible }) {
-                                Icon(
-                                    imageVector = if (loginPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = "Toggle password"
-                                )
-                            }
-                        },
-                        visualTransformation = if (loginPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (!isLoading) {
-                                    isLoading = true
-                                    errorMessage = null
-                                    onLogin(loginIdentifier, loginPassword) { success, msg ->
-                                        isLoading = false
-                                        if (!success) errorMessage = msg
-                                    }
-                                }
-                            }
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("login_password_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    Button(
-                        onClick = {
-                            if (!isLoading) {
-                                isLoading = true
-                                errorMessage = null
-                                successMessage = null
-                                onLogin(loginIdentifier, loginPassword) { success, msg ->
-                                    isLoading = false
-                                    if (!success) errorMessage = msg
-                                }
-                            }
-                        },
-                        enabled = !isLoading && loginIdentifier.isNotBlank() && loginPassword.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("btn_submit_login"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SaveBiteEmerald
-                        )
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Sign In to Your Dashboard",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            } else if (selectedTab == 1) {
-                // EMAIL OTP LOGIN FORM
-                item {
-                    OutlinedTextField(
-                        value = otpEmail,
-                        onValueChange = { otpEmail = it },
-                        label = { Text("Email Address") },
-                        placeholder = { Text("e.g. roshankurkutiya285@gmail.com") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Done
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("otp_email_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                // Send OTP Button
-                item {
-                    Button(
-                        onClick = {
-                            if (!isSendingOtp && otpEmail.isNotBlank()) {
-                                isSendingOtp = true
-                                errorMessage = null
-                                successMessage = null
-                                if (onSendOtp != null) {
-                                    onSendOtp(otpEmail) { success, info, msg ->
-                                        isSendingOtp = false
-                                        if (success) {
-                                            localOtpInfo = info
-                                            successMessage = msg
-                                        } else {
-                                            errorMessage = msg
-                                        }
-                                    }
-                                } else {
-                                    val dispatchRes = com.example.util.EmailOtpManager.dispatchOtp(otpEmail)
-                                    isSendingOtp = false
-                                    dispatchRes.onSuccess { info ->
-                                        localOtpInfo = info
-                                        successMessage = "Verification code dispatched to $otpEmail!"
-                                    }.onFailure { err ->
-                                        errorMessage = err.message ?: "Failed to generate OTP"
-                                    }
-                                }
-                            }
-                        },
-                        enabled = !isSendingOtp && otpEmail.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("btn_send_otp"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (localOtpInfo != null || activeOtpDispatch != null) MaterialTheme.colorScheme.secondary else SaveBiteEmerald
-                        )
-                    ) {
-                        if (isSendingOtp) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = if (localOtpInfo != null || activeOtpDispatch != null) "Resend 6-Digit OTP" else "Send 6-Digit OTP to Email",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // In-App Email Dispatch Simulation Preview Card
-                val activeDispatch = activeOtpDispatch ?: localOtpInfo
-                if (activeDispatch != null) {
-                    item {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("otp_email_simulation_card")
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFF10B981).copy(alpha = 0.2f),
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.Default.Email,
-                                                contentDescription = null,
-                                                tint = Color(0xFF10B981),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "📬 In-App Email Dispatch Simulator",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF10B981)
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    Text(
-                                        text = "Just Now",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.5f)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "To: ${activeDispatch.email}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.7f)
-                                )
-                                Text(
-                                    text = "Subject: SaveBite Security: Your One-Time Login Code",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White.copy(alpha = 0.85f)
-                                )
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF1E293B),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = "Verification Code:",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White.copy(alpha = 0.6f)
-                                            )
-                                            Text(
-                                                text = activeDispatch.code,
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Black,
-                                                letterSpacing = 4.sp,
-                                                color = Color(0xFF38BDF8)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.weight(1f))
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = Color(0xFF38BDF8).copy(alpha = 0.2f),
-                                            modifier = Modifier.clickable {
-                                                otpCode = activeDispatch.code
-                                            }
-                                        ) {
-                                            Text(
-                                                text = "⚡ Quick Fill",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF38BDF8),
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Valid for 5 minutes. Never share this code with anyone.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 6-digit OTP Code Input
-                item {
-                    OutlinedTextField(
-                        value = otpCode,
-                        onValueChange = { input ->
-                            if (input.length <= 6) {
-                                otpCode = input.filter { it.isDigit() }
-                            }
-                        },
-                        label = { Text("6-Digit OTP Verification Code") },
-                        placeholder = { Text("e.g. 849201") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("otp_code_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                // Role selection for OTP login if new account
-                item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Login As Role (for new accounts):",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(
-                                UserRole.CUSTOMER to "Customer",
-                                UserRole.BAKERY to "Merchant",
-                                UserRole.PICKUP_AGENT to "Pickup",
-                                UserRole.ADMIN to "Admin"
-                            ).forEach { (role, label) ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (otpRole == role) SaveBiteEmerald.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = if (otpRole == role) androidx.compose.foundation.BorderStroke(1.5.dp, SaveBiteEmerald) else null,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { otpRole = role }
-                                ) {
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = if (otpRole == role) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (otpRole == role) SaveBiteEmerald else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Submit Verify OTP
-                item {
-                    Button(
-                        onClick = {
-                            if (!isLoading && otpCode.length >= 6) {
-                                isLoading = true
-                                errorMessage = null
-                                successMessage = null
-                                if (onVerifyOtp != null) {
-                                    onVerifyOtp(otpEmail, otpCode, otpRole) { success, msg ->
-                                        isLoading = false
-                                        if (!success) errorMessage = msg
-                                    }
-                                } else {
-                                    isLoading = false
-                                    errorMessage = "OTP verification callback not configured."
-                                }
-                            }
-                        },
-                        enabled = !isLoading && otpEmail.isNotBlank() && otpCode.length == 6,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("btn_verify_otp"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Verify OTP & Generate JWT Session",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            } else {
-                // REGISTER FORM
-                item {
-                    OutlinedTextField(
-                        value = registerName,
-                        onValueChange = { registerName = it },
-                        label = { Text("Full Name / Business Name") },
-                        placeholder = { Text("e.g. Rohan Kurkutiya / Royal Bakes") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("register_name_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = registerEmail,
-                        onValueChange = { registerEmail = it },
-                        label = { Text("Email Address") },
-                        placeholder = { Text("e.g. roshan@example.com") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Email, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("register_email_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = registerPhone,
-                        onValueChange = { registerPhone = it },
-                        label = { Text("Mobile Number") },
-                        placeholder = { Text("+91 98765 43210") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Phone, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("register_phone_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        value = registerPassword,
-                        onValueChange = { registerPassword = it },
-                        label = { Text("Set Password") },
-                        placeholder = { Text("Min 4 characters") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = SaveBiteEmerald)
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { registerPasswordVisible = !registerPasswordVisible }) {
-                                Icon(
-                                    imageVector = if (registerPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = "Toggle password"
-                                )
-                            }
-                        },
-                        visualTransformation = if (registerPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("register_password_input"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SaveBiteEmerald,
-                            focusedLabelColor = SaveBiteEmerald
-                        )
-                    )
-                }
-
-                item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Select Account Role:",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Your dashboard is customized based on this selection",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-
-                item {
-                    RoleSelectionCard(
-                        title = "Customer / Rescuer",
-                        description = "Browse surplus food bags, reserve at 50-70% discount, earn eco badges",
-                        icon = Icons.Default.Person,
-                        role = UserRole.CUSTOMER,
-                        isSelected = selectedRole == UserRole.CUSTOMER,
-                        accentColor = Color(0xFF10B981),
-                        onClick = { selectedRole = UserRole.CUSTOMER }
-                    )
-                }
-
-                item {
-                    RoleSelectionCard(
-                        title = "Merchant / Food Business",
-                        description = "Bakery, Restaurant, Dhaba or Cafe selling daily surplus batches & managing inventory",
-                        icon = Icons.Default.Store,
-                        role = UserRole.BAKERY,
-                        isSelected = selectedRole == UserRole.BAKERY || selectedRole == UserRole.RESTAURANT,
-                        accentColor = Color(0xFFF59E0B),
-                        onClick = { selectedRole = UserRole.BAKERY }
-                    )
-                }
-
-                item {
-                    RoleSelectionCard(
-                        title = "Pickup & Logistics Partner",
-                        description = "Store-to-customer food collection, transit handovers & QR pass verification",
-                        icon = Icons.Default.LocalShipping,
-                        role = UserRole.PICKUP_AGENT,
-                        isSelected = selectedRole == UserRole.PICKUP_AGENT,
-                        accentColor = Color(0xFF3B82F6),
-                        onClick = { selectedRole = UserRole.PICKUP_AGENT }
-                    )
-                }
-
-                item {
-                    RoleSelectionCard(
-                        title = "Platform Admin",
-                        description = "Pan-India oversight, merchant FSSAI audits, emergency alerts & user directory",
-                        icon = Icons.Default.AdminPanelSettings,
-                        role = UserRole.ADMIN,
-                        isSelected = selectedRole == UserRole.ADMIN,
-                        accentColor = Color(0xFF8B5CF6),
-                        onClick = { selectedRole = UserRole.ADMIN }
-                    )
-                }
-
-                item {
-                    RoleSelectionCard(
-                        title = "NGO Partner (Annadaan)",
-                        description = "Rescue banquet wedding surplus, claim free food bags for shelter distribution",
-                        icon = Icons.Default.VolunteerActivism,
-                        role = UserRole.NGO,
-                        isSelected = selectedRole == UserRole.NGO,
-                        accentColor = Color(0xFFEC4899),
-                        onClick = { selectedRole = UserRole.NGO }
-                    )
-                }
-
-                item {
-                    Button(
-                        onClick = {
-                            if (!isLoading) {
-                                isLoading = true
-                                errorMessage = null
-                                successMessage = null
-                                onRegister(
-                                    registerName,
-                                    registerEmail,
-                                    registerPhone,
-                                    registerPassword,
-                                    selectedRole
-                                ) { success, msg ->
-                                    isLoading = false
-                                    if (!success) {
-                                        errorMessage = msg
-                                    } else {
-                                        successMessage = "Account created successfully! Welcome to SaveBite."
-                                    }
-                                }
-                            }
-                        },
-                        enabled = !isLoading && registerName.isNotBlank() && registerEmail.isNotBlank() && registerPassword.length >= 4,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .testTag("btn_submit_register"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SaveBiteEmerald
-                        )
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Create Account & Enter Dashboard",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("auth_security_specs_card")
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Lock,
+                                imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = SaveBiteEmerald,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Enterprise Security & Payment Stack",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = statusSuccess!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SaveBiteEmerald,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "• JWT Session: Cryptographic HMAC-SHA256 tokens with role-claim signing & auto-refresh.\n" +
-                                   "• Email OTP: 6-digit one-time passcode with 5-minute expiry & rate-limiting.\n" +
-                                   "• Razorpay Integration: UPI QR, NetBanking, Cards with verified signature callbacks.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                            lineHeight = 16.sp
-                        )
-                        if (activeJwtToken != null) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "🔑 Active Token: ${activeJwtToken.take(18)}... (Verified)",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = SaveBiteEmerald
+                    }
+                }
+            }
+
+            // Mode Content Transition
+            item {
+                AnimatedContent(
+                    targetState = mode,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "auth_screens"
+                ) { currentMode ->
+                    when (currentMode) {
+                        AuthMode.SIGN_IN -> {
+                            SignInView(
+                                identifier = loginIdentifier,
+                                onIdentifierChange = { loginIdentifier = it; statusError = null },
+                                password = loginPassword,
+                                onPasswordChange = { loginPassword = it; statusError = null },
+                                passwordVisible = loginPasswordVisible,
+                                onTogglePasswordVisibility = { loginPasswordVisible = !loginPasswordVisible },
+                                isLoading = isLoading,
+                                onForgotPasswordClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    resetEmail = loginIdentifier
+                                    mode = AuthMode.FORGOT_PASSWORD_EMAIL
+                                },
+                                onSignInClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    isLoading = true
+                                    onLogin(loginIdentifier, loginPassword) { success, msg ->
+                                        isLoading = false
+                                        if (!success) {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onGoToRegisterClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    mode = AuthMode.REGISTER_FORM
+                                }
+                            )
+                        }
+
+                        AuthMode.REGISTER_FORM -> {
+                            RegisterFormView(
+                                name = regName,
+                                onNameChange = { regName = it; statusError = null },
+                                email = regEmail,
+                                onEmailChange = { regEmail = it; statusError = null },
+                                phone = regPhone,
+                                onPhoneChange = { regPhone = it; statusError = null },
+                                password = regPassword,
+                                onPasswordChange = { regPassword = it; statusError = null },
+                                confirmPassword = regConfirmPassword,
+                                onConfirmPasswordChange = { regConfirmPassword = it; statusError = null },
+                                role = regRole,
+                                onRoleChange = { regRole = it },
+                                passwordVisible = regPasswordVisible,
+                                onTogglePasswordVisibility = { regPasswordVisible = !regPasswordVisible },
+                                isLoading = isLoading,
+                                onSendOtpClick = {
+                                    if (regName.isBlank()) {
+                                        statusError = "Please enter your full name."
+                                        return@RegisterFormView
+                                    }
+                                    if (regEmail.isBlank() || !regEmail.contains("@")) {
+                                        statusError = "Please enter a valid email address."
+                                        return@RegisterFormView
+                                    }
+                                    if (regPassword.length < 6) {
+                                        statusError = "Password must be at least 6 characters long."
+                                        return@RegisterFormView
+                                    }
+                                    if (regPassword != regConfirmPassword) {
+                                        statusError = "Passwords do not match."
+                                        return@RegisterFormView
+                                    }
+
+                                    statusError = null
+                                    isLoading = true
+                                    onSendOtp(regEmail.trim().lowercase()) { success, info, msg ->
+                                        isLoading = false
+                                        if (success) {
+                                            regOtpDispatchInfo = info
+                                            statusSuccess = "Verification code dispatched to ${regEmail.trim()}."
+                                            mode = AuthMode.REGISTER_OTP_VERIFY
+                                        } else {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onBackToSignInClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    mode = AuthMode.SIGN_IN
+                                }
+                            )
+                        }
+
+                        AuthMode.REGISTER_OTP_VERIFY -> {
+                            RegisterOtpVerifyView(
+                                email = regEmail,
+                                otpCode = regOtpCode,
+                                onOtpCodeChange = { regOtpCode = it; statusError = null },
+                                isLoading = isLoading,
+                                onResendOtpClick = {
+                                    statusError = null
+                                    isLoading = true
+                                    onSendOtp(regEmail.trim().lowercase()) { success, info, msg ->
+                                        isLoading = false
+                                        if (success) {
+                                            regOtpDispatchInfo = info
+                                            statusSuccess = "A new verification code was sent to ${regEmail.trim()}."
+                                        } else {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onVerifyAndRegisterClick = {
+                                    if (regOtpCode.trim().length != 6) {
+                                        statusError = "Please enter the complete 6-digit OTP code."
+                                        return@RegisterOtpVerifyView
+                                    }
+                                    statusError = null
+                                    isLoading = true
+                                    onRegisterWithOtp(
+                                        regName.trim(),
+                                        regEmail.trim().lowercase(),
+                                        regPhone.trim().ifBlank { "+91 98000 12345" },
+                                        regPassword.trim(),
+                                        regRole,
+                                        regOtpCode.trim()
+                                    ) { success, msg ->
+                                        isLoading = false
+                                        if (!success) {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onEditEmailClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    mode = AuthMode.REGISTER_FORM
+                                }
+                            )
+                        }
+
+                        AuthMode.FORGOT_PASSWORD_EMAIL -> {
+                            ForgotPasswordEmailView(
+                                email = resetEmail,
+                                onEmailChange = { resetEmail = it; statusError = null },
+                                isLoading = isLoading,
+                                onSendResetCodeClick = {
+                                    if (resetEmail.isBlank() || !resetEmail.contains("@")) {
+                                        statusError = "Please enter a valid registered email address."
+                                        return@ForgotPasswordEmailView
+                                    }
+                                    statusError = null
+                                    isLoading = true
+                                    onForgotPassword(resetEmail.trim().lowercase()) { success, _, msg ->
+                                        isLoading = false
+                                        if (success) {
+                                            statusSuccess = "Reset verification code sent to ${resetEmail.trim()}."
+                                            mode = AuthMode.FORGOT_PASSWORD_RESET
+                                        } else {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onBackToSignInClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    mode = AuthMode.SIGN_IN
+                                }
+                            )
+                        }
+
+                        AuthMode.FORGOT_PASSWORD_RESET -> {
+                            ForgotPasswordResetView(
+                                email = resetEmail,
+                                otpCode = resetOtpCode,
+                                onOtpCodeChange = { resetOtpCode = it; statusError = null },
+                                newPassword = resetNewPassword,
+                                onNewPasswordChange = { resetNewPassword = it; statusError = null },
+                                confirmPassword = resetConfirmPassword,
+                                onConfirmPasswordChange = { resetConfirmPassword = it; statusError = null },
+                                passwordVisible = resetPasswordVisible,
+                                onTogglePasswordVisibility = { resetPasswordVisible = !resetPasswordVisible },
+                                isLoading = isLoading,
+                                onResetPasswordClick = {
+                                    if (resetOtpCode.trim().length != 6) {
+                                        statusError = "Please enter the 6-digit reset code."
+                                        return@ForgotPasswordResetView
+                                    }
+                                    if (resetNewPassword.length < 6) {
+                                        statusError = "Password must be at least 6 characters."
+                                        return@ForgotPasswordResetView
+                                    }
+                                    if (resetNewPassword != resetConfirmPassword) {
+                                        statusError = "Passwords do not match."
+                                        return@ForgotPasswordResetView
+                                    }
+
+                                    statusError = null
+                                    isLoading = true
+                                    onResetPasswordWithOtp(
+                                        resetEmail.trim().lowercase(),
+                                        resetOtpCode.trim(),
+                                        resetNewPassword.trim()
+                                    ) { success, msg ->
+                                        isLoading = false
+                                        if (success) {
+                                            statusSuccess = "Password updated! Please sign in with your new credentials."
+                                            loginIdentifier = resetEmail
+                                            loginPassword = ""
+                                            mode = AuthMode.SIGN_IN
+                                        } else {
+                                            statusError = msg
+                                        }
+                                    }
+                                },
+                                onBackToEmailClick = {
+                                    statusError = null
+                                    statusSuccess = null
+                                    mode = AuthMode.FORGOT_PASSWORD_EMAIL
+                                }
                             )
                         }
                     }
@@ -1113,22 +472,138 @@ fun AuthScreen(
             }
 
             item {
-                Spacer(modifier = Modifier.height(20.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Eco,
-                        contentDescription = null,
-                        tint = SaveBiteEmerald,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(40.dp))
+            }
+        }
+    }
+}
+
+// ---------------- SUBVIEWS ----------------
+
+@Composable
+private fun SignInView(
+    identifier: String,
+    onIdentifierChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePasswordVisibility: () -> Unit,
+    isLoading: Boolean,
+    onForgotPasswordClick: () -> Unit,
+    onSignInClick: () -> Unit,
+    onGoToRegisterClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Sign In",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Welcome back! Enter your registered credentials to access your dashboard.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
+            )
+
+            OutlinedTextField(
+                value = identifier,
+                onValueChange = onIdentifierChange,
+                label = { Text("Email Address or Phone") },
+                placeholder = { Text("e.g. roshan@example.com") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_login_identifier")
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = { Text("Password") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = onTogglePasswordVisibility) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onSignInClick() }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_login_password")
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onForgotPasswordClick) {
                     Text(
-                        text = "SaveBite India • FSSAI Certified Partners",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                        text = "Forgot Password?",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SaveBiteEmerald,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onSignInClick,
+                enabled = !isLoading && identifier.isNotBlank() && password.isNotBlank(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("btn_sign_in")
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                } else {
+                    Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Don't have an account?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                TextButton(onClick = onGoToRegisterClick) {
+                    Text(
+                        text = "Create Account",
+                        fontWeight = FontWeight.Bold,
+                        color = SaveBiteEmerald
                     )
                 }
             }
@@ -1137,72 +612,496 @@ fun AuthScreen(
 }
 
 @Composable
-private fun RoleSelectionCard(
-    title: String,
-    description: String,
-    icon: ImageVector,
+private fun RegisterFormView(
+    name: String,
+    onNameChange: (String) -> Unit,
+    email: String,
+    onEmailChange: (String) -> Unit,
+    phone: String,
+    onPhoneChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    confirmPassword: String,
+    onConfirmPasswordChange: (String) -> Unit,
     role: UserRole,
-    isSelected: Boolean,
-    accentColor: Color,
-    onClick: () -> Unit
+    onRoleChange: (UserRole) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePasswordVisibility: () -> Unit,
+    isLoading: Boolean,
+    onSendOtpClick: () -> Unit,
+    onBackToSignInClick: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) accentColor.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
-        border = if (isSelected) {
-            androidx.compose.foundation.BorderStroke(2.dp, accentColor)
-        } else {
-            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .testTag("role_card_${role.name.lowercase()}")
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = if (isSelected) accentColor else MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBackToSignInClick, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Sign In")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Create Account",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
+                text = "Step 1 of 2: Profile & Role Details",
+                style = MaterialTheme.typography.labelMedium,
+                color = SaveBiteEmerald,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            )
+
+            // Select Role Selector
+            Text(
+                text = "Select your account type:",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val roleOptions = listOf(
+                Triple(UserRole.CUSTOMER, "Consumer / Rescuer", Icons.Default.Person),
+                Triple(UserRole.RESTAURANT, "Restaurant / Bakery", Icons.Default.Store),
+                Triple(UserRole.PICKUP_AGENT, "Delivery Partner", Icons.Default.LocalShipping),
+                Triple(UserRole.NGO, "Registered NGO", Icons.Default.VolunteerActivism)
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                roleOptions.forEach { (roleOpt, label, icon) ->
+                    val isSelected = role == roleOpt
+                    Surface(
+                        onClick = { onRoleChange(roleOpt) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) SaveBiteEmerald.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, SaveBiteEmerald) else null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    lineHeight = 16.sp
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                label = { Text("Full Name") },
+                placeholder = { Text("e.g. Priya Sharma") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = onEmailChange,
+                label = { Text("Email Address (OTP will be sent here)") },
+                placeholder = { Text("priya@example.com") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = phone,
+                onValueChange = onPhoneChange,
+                label = { Text("Mobile Phone Number") },
+                placeholder = { Text("+91 98765 43210") },
+                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = { Text("Password (min. 6 characters)") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = onTogglePasswordVisibility) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = onConfirmPasswordChange,
+                label = { Text("Confirm Password") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = onSendOtpClick,
+                enabled = !isLoading,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Send OTP & Continue", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                TextButton(onClick = onBackToSignInClick) {
+                    Text(
+                        text = "Already have an account? Sign In",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegisterOtpVerifyView(
+    email: String,
+    otpCode: String,
+    onOtpCodeChange: (String) -> Unit,
+    isLoading: Boolean,
+    onResendOtpClick: () -> Unit,
+    onVerifyAndRegisterClick: () -> Unit,
+    onEditEmailClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(SaveBiteEmerald.copy(alpha = 0.12f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = null,
+                    tint = SaveBiteEmerald,
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            if (isSelected) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Verify Your Email",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "We sent a 6-digit verification code to:\n$email",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
+            )
+
+            OutlinedTextField(
+                value = otpCode,
+                onValueChange = { if (it.length <= 6) onOtpCodeChange(it.filter { char -> char.isDigit() }) },
+                label = { Text("6-Digit Verification Code") },
+                placeholder = { Text("e.g. 123456") },
+                leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onVerifyAndRegisterClick() }),
+                textStyle = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 6.sp,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("input_register_otp")
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = onVerifyAndRegisterClick,
+                enabled = !isLoading && otpCode.length == 6,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("btn_verify_and_create")
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                } else {
+                    Text("Verify & Create Account", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onEditEmailClick) {
+                    Text("Change Email", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                }
+                TextButton(onClick = onResendOtpClick) {
+                    Text("Resend Code", color = SaveBiteEmerald, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForgotPasswordEmailView(
+    email: String,
+    onEmailChange: (String) -> Unit,
+    isLoading: Boolean,
+    onSendResetCodeClick: () -> Unit,
+    onBackToSignInClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBackToSignInClick, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = accentColor,
-                    modifier = Modifier.size(22.dp)
+                Text(
+                    text = "Reset Password",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
+            }
+
+            Text(
+                text = "Enter your registered email address and we'll dispatch a 6-digit recovery code to verify your identity.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
+            )
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = onEmailChange,
+                label = { Text("Registered Email Address") },
+                placeholder = { Text("e.g. roshan@example.com") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onSendResetCodeClick() }),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = onSendResetCodeClick,
+                enabled = !isLoading && email.isNotBlank(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                } else {
+                    Text("Send Recovery Code", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                TextButton(onClick = onBackToSignInClick) {
+                    Text("Remember password? Sign In", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForgotPasswordResetView(
+    email: String,
+    otpCode: String,
+    onOtpCodeChange: (String) -> Unit,
+    newPassword: String,
+    onNewPasswordChange: (String) -> Unit,
+    confirmPassword: String,
+    onConfirmPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePasswordVisibility: () -> Unit,
+    isLoading: Boolean,
+    onResetPasswordClick: () -> Unit,
+    onBackToEmailClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBackToEmailClick, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "New Password",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Text(
+                text = "Enter the 6-digit recovery code sent to $email and your new password.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
+            )
+
+            OutlinedTextField(
+                value = otpCode,
+                onValueChange = { if (it.length <= 6) onOtpCodeChange(it.filter { c -> c.isDigit() }) },
+                label = { Text("6-Digit Recovery Code") },
+                placeholder = { Text("123456") },
+                leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = newPassword,
+                onValueChange = onNewPasswordChange,
+                label = { Text("New Password (min. 6 chars)") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = onTogglePasswordVisibility) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = onConfirmPasswordChange,
+                label = { Text("Confirm New Password") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onResetPasswordClick() }),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = onResetPasswordClick,
+                enabled = !isLoading && otpCode.length == 6 && newPassword.length >= 6,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                } else {
+                    Text("Update Password & Return to Sign In", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }

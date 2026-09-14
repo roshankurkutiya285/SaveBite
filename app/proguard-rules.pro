@@ -12,10 +12,23 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Room Database rules
+-keep class androidx.room.RoomDatabase { *; }
+-dontwarn androidx.room.paging.**
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao interface * { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# SaveBite Data Models and Entities
+-keep class com.example.data.local.entity.** { *; }
+-keep class com.example.data.model.** { *; }
+-keep class com.example.util.** { *; }
+
+# Kotlin Coroutines
+-keepclassmembers class kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
+
+# Keep Line Numbers for Crash Reporting
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+

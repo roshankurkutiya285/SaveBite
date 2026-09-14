@@ -42,7 +42,8 @@ enum class SaveBiteTab {
     PICKUPS,
     MERCHANT_HUB,
     ADMIN,
-    IMPACT
+    IMPACT,
+    PROFILE
 }
 
 data class CelebrationEvent(
@@ -378,97 +379,151 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun quickLogin(role: UserRole) {
-        switchUserRole(role)
-    }
-
     fun logout() {
         jwtSessionManager.clearSession()
         _activeJwtToken.value = null
         _currentUser.value = null
         _selectedPackage.value = null
-        _snackbarMessage.value = "Logged out successfully. JWT session cleared."
+        _snackbarMessage.value = "Logged out successfully. Secure session cleared."
     }
 
-    fun switchUserRole(role: UserRole) {
-        val user = when (role) {
-            UserRole.CUSTOMER -> UserEntity(
-                id = "user_customer_elena",
-                email = "aarav.sharma@savebite.in",
-                password = "password123",
-                name = "Aarav Sharma",
-                phone = "+91 98450 23145",
-                role = UserRole.CUSTOMER
-            )
-            UserRole.BAKERY, UserRole.RESTAURANT -> UserEntity(
-                id = "user_merchant_artisan",
-                email = "vikramaditya@bikanersweets.in",
-                password = "password123",
-                name = "Chef Vikramaditya Singh (Bikaner Sweets)",
-                phone = "+91 98110 54321",
-                role = role
-            )
-            UserRole.PICKUP_AGENT -> UserEntity(
-                id = "user_pickup_rajat",
-                email = "rajat.courier@savebite.in",
-                password = "password123",
-                name = "Rajat Verma (Pickup Partner)",
-                phone = "+91 98765 43210",
-                role = UserRole.PICKUP_AGENT
-            )
-            UserRole.NGO -> UserEntity(
-                id = "user_ngo_rescue",
-                email = "ananya@robinhoodarmy.org",
-                password = "password123",
-                name = "Ananya Mukherjee (Robin Hood Army)",
-                phone = "+91 99301 77654",
-                role = UserRole.NGO
-            )
-            UserRole.ADMIN -> UserEntity(
-                id = "user_admin_rajesh",
-                email = "admin@savebite.in",
-                password = "password123",
-                name = "Rajesh Verma (Platform Admin)",
-                phone = "+91 98001 11222",
-                role = UserRole.ADMIN
-            )
-            else -> _currentUser.value?.copy(role = role) ?: UserEntity(
-                id = "user_default_${UUID.randomUUID().toString().take(6)}",
-                email = "user@savebite.in",
-                password = "password123",
-                name = "SaveBite User",
-                phone = "+91 98000 00000",
-                role = role
-            )
-        }
-        _currentUser.value = user
-        val jwt = JwtManager.generateToken(user)
-        jwtSessionManager.saveToken(jwt)
-        _activeJwtToken.value = jwt.accessToken
+    // --- Production Onboarding & Password Recovery ---
+    fun registerWithOtp(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        role: UserRole,
+        otpCode: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val verifyRes = EmailOtpManager.verifyOtp(email, otpCode)
+            if (verifyRes.isFailure) {
+                onResult(false, verifyRes.exceptionOrNull()?.message ?: "Invalid or expired OTP code.")
+                return@launch
+            }
 
-        when (role) {
-            UserRole.CUSTOMER -> {
-                _currentTab.value = SaveBiteTab.CUSTOMER
-                _snackbarMessage.value = "Switched to Consumer Mode (Aarav Sharma)"
+            val result = repository.registerUser(name, email, phone, password, role)
+            result.onSuccess { user ->
+                val jwt = JwtManager.generateToken(user)
+                jwtSessionManager.saveToken(jwt)
+                _activeJwtToken.value = jwt.accessToken
+                _currentUser.value = user
+                _activeOtpDispatch.value = null
+                _snackbarMessage.value = "Account created & verified! Welcome to SaveBite, ${user.name}."
+                when (user.role) {
+                    UserRole.CUSTOMER -> _currentTab.value = SaveBiteTab.CUSTOMER
+                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
+                        _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                        _selectedMerchantStoreId.value = "merchant_${user.id}"
+                    }
+                    UserRole.PICKUP_AGENT -> _currentTab.value = SaveBiteTab.PICKUPS
+                    UserRole.ADMIN -> _currentTab.value = SaveBiteTab.ADMIN
+                    UserRole.NGO -> _currentTab.value = SaveBiteTab.CUSTOMER
+                }
+                onResult(true, "Account created and verified successfully!")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Registration failed.")
             }
-            UserRole.BAKERY, UserRole.RESTAURANT -> {
-                _currentTab.value = SaveBiteTab.MERCHANT_HUB
-                _selectedMerchantStoreId.value = "merchant_artisan_bakery"
-                _snackbarMessage.value = "Switched to Merchant Mode (Chef Vikramaditya Singh)"
+        }
+    }
+
+    fun forgotPassword(email: String, onResult: (Boolean, OtpDispatchInfo?, String) -> Unit) {
+        viewModelScope.launch {
+            val cleanEmail = email.trim().lowercase()
+            if (cleanEmail.isBlank() || !cleanEmail.contains("@")) {
+                onResult(false, null, "Please enter a valid registered email address.")
+                return@launch
             }
-            UserRole.PICKUP_AGENT -> {
-                _currentTab.value = SaveBiteTab.PICKUPS
-                _snackbarMessage.value = "Switched to Pickup & Delivery Partner Mode (Rajat Verma)"
+            val existing = repository.getUserByEmailOrPhone(cleanEmail)
+            if (existing == null) {
+                onResult(false, null, "No account found registered with $cleanEmail.")
+                return@launch
             }
-            UserRole.NGO -> {
-                _currentTab.value = SaveBiteTab.CUSTOMER
-                _snackbarMessage.value = "Switched to NGO Partner Mode (Robin Hood Army)"
+            val res = EmailOtpManager.dispatchOtp(cleanEmail)
+            res.onSuccess { info ->
+                _activeOtpDispatch.value = info
+                _snackbarMessage.value = "Reset code sent to $cleanEmail."
+                onResult(true, info, "Reset code dispatched successfully")
+            }.onFailure { err ->
+                onResult(false, null, err.message ?: "Failed to generate reset OTP.")
             }
-            UserRole.ADMIN -> {
-                _currentTab.value = SaveBiteTab.ADMIN
-                _snackbarMessage.value = "Switched to Platform Admin Mode (Rajesh Verma)"
+        }
+    }
+
+    fun resetPasswordWithOtp(
+        email: String,
+        otpCode: String,
+        newPass: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val verifyRes = EmailOtpManager.verifyOtp(email, otpCode)
+            if (verifyRes.isFailure) {
+                onResult(false, verifyRes.exceptionOrNull()?.message ?: "Invalid or expired OTP.")
+                return@launch
             }
-            else -> {}
+            val result = repository.resetPassword(email, newPass)
+            result.onSuccess {
+                _snackbarMessage.value = "Password reset successfully! You can now sign in."
+                onResult(true, "Password updated successfully!")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Failed to reset password.")
+            }
+        }
+    }
+
+    fun updateProfile(name: String, phone: String, avatarUrl: String, onResult: (Boolean, String) -> Unit) {
+        val user = _currentUser.value
+        if (user == null) {
+            onResult(false, "No active session found.")
+            return
+        }
+        viewModelScope.launch {
+            val res = repository.updateProfile(user.id, name, phone, avatarUrl)
+            res.onSuccess {
+                _currentUser.value = user.copy(name = name.trim(), phone = phone.trim(), avatarUrl = avatarUrl)
+                _snackbarMessage.value = "Profile details updated successfully."
+                onResult(true, "Profile updated successfully.")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Failed to update profile.")
+            }
+        }
+    }
+
+    fun changePassword(currentPass: String, newPass: String, onResult: (Boolean, String) -> Unit) {
+        val user = _currentUser.value
+        if (user == null) {
+            onResult(false, "No active session found.")
+            return
+        }
+        viewModelScope.launch {
+            val res = repository.changePassword(user.id, currentPass, newPass)
+            res.onSuccess {
+                _snackbarMessage.value = "Password changed successfully."
+                onResult(true, "Password changed successfully.")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Failed to update password.")
+            }
+        }
+    }
+
+    fun deleteAccount(onResult: (Boolean, String) -> Unit) {
+        val user = _currentUser.value
+        if (user == null) {
+            onResult(false, "No active session found.")
+            return
+        }
+        viewModelScope.launch {
+            val res = repository.deleteAccount(user.id)
+            res.onSuccess {
+                logout()
+                _snackbarMessage.value = "Your account and data have been completely deleted."
+                onResult(true, "Account deleted.")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Failed to delete account.")
+            }
         }
     }
 
@@ -604,8 +659,19 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     fun cancelOrder(orderId: String) {
         viewModelScope.launch {
             val result = repository.cancelOrder(orderId)
-            result.onSuccess { order ->
-                _snackbarMessage.value = "Reservation ${order.orderNumber} cancelled. Inventory returned."
+            result.onSuccess { (order, refund) ->
+                if (refund != null) {
+                    _snackbarMessage.value = "Reservation ${order.orderNumber} cancelled. Instant refund of ${formatRupees(refund.amountRupees)} initiated via Razorpay (${refund.refundId})."
+                    _celebrationEvent.value = CelebrationEvent(
+                        title = "Refund Processed via Razorpay",
+                        subtitle = "Instant reversal of ${formatRupees(refund.amountRupees)} sent to original payment method",
+                        iconEmoji = "💰",
+                        statHighlight = "Refund ID: ${refund.refundId}\nSpeed: Instant UPI / Bank Reversal\nOrder: ${order.orderNumber}",
+                        isBadgeUnlock = false
+                    )
+                } else {
+                    _snackbarMessage.value = "Reservation ${order.orderNumber} cancelled. Inventory returned to marketplace."
+                }
             }.onFailure { err ->
                 _snackbarMessage.value = err.message ?: "Failed to cancel reservation."
             }

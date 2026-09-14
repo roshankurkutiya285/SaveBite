@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.ExitToApp
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -69,6 +72,7 @@ import com.example.ui.SaveBiteTab
 import com.example.ui.SaveBiteViewModel
 import com.example.ui.components.CelebrationDialog
 import com.example.ui.components.RazorpayCheckoutSheet
+import com.example.ui.screens.AccessDeniedScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CustomerHomeScreen
@@ -77,6 +81,7 @@ import com.example.ui.screens.MerchantDashboardScreen
 import com.example.ui.screens.NgoDashboardScreen
 import com.example.ui.screens.PickupsDashboardScreen
 import com.example.ui.screens.PackageDetailScreen
+import com.example.ui.screens.ProfileScreen
 import com.example.ui.theme.AppColorPalette
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.SaveBiteAmber
@@ -136,20 +141,18 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                 onLogin = { identifier, password, callback ->
                     viewModel.login(identifier, password, callback)
                 },
-                onRegister = { name, email, phone, password, role, callback ->
-                    viewModel.register(name, email, phone, password, role, callback)
-                },
-                onQuickLogin = { role ->
-                    viewModel.quickLogin(role)
-                },
                 onSendOtp = { email, callback ->
                     viewModel.sendEmailOtp(email, callback)
                 },
-                onVerifyOtp = { email, code, role, callback ->
-                    viewModel.verifyEmailOtp(email, code, role, callback)
+                onRegisterWithOtp = { name, email, phone, password, role, otpCode, callback ->
+                    viewModel.registerWithOtp(name, email, phone, password, role, otpCode, callback)
                 },
-                activeOtpDispatch = activeOtpDispatch,
-                activeJwtToken = activeJwtToken,
+                onForgotPassword = { email, callback ->
+                    viewModel.forgotPassword(email, callback)
+                },
+                onResetPasswordWithOtp = { email, otpCode, newPass, callback ->
+                    viewModel.resetPasswordWithOtp(email, otpCode, newPass, callback)
+                },
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -219,11 +222,11 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                             )
                         },
                         actions = {
-                            // User Profile Pill & Quick Role Switcher
+                            // User Profile Pill & Account Security Menu
                             Box {
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
-                                    color = SaveBiteAmber.copy(alpha = 0.15f),
+                                    color = SaveBiteEmerald.copy(alpha = 0.12f),
                                     modifier = Modifier.clickable { showRoleMenu = true }
                                 ) {
                                     Row(
@@ -231,15 +234,9 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = when (user.role) {
-                                                UserRole.ADMIN -> Icons.Default.AdminPanelSettings
-                                                UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> Icons.Default.Store
-                                                UserRole.PICKUP_AGENT -> Icons.Default.LocalShipping
-                                                UserRole.NGO -> Icons.Default.VolunteerActivism
-                                                else -> Icons.Default.Person
-                                            },
+                                            imageVector = Icons.Default.Verified,
                                             contentDescription = null,
-                                            tint = SaveBiteAmber,
+                                            tint = SaveBiteEmerald,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -281,7 +278,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = "JWT Session: Active",
+                                                text = "Role: ${user.role.name}",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = SaveBiteEmerald
@@ -289,59 +286,35 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                         }
                                     }
                                     DropdownMenuItem(
-                                        text = { Text("Customer: Aarav Sharma") },
+                                        text = { Text("Profile & Security") },
                                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                                         onClick = {
-                                            viewModel.quickLogin(UserRole.CUSTOMER)
+                                            viewModel.selectTab(SaveBiteTab.PROFILE)
                                             showRoleMenu = false
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Merchant: Bikaner Sweets") },
-                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) },
+                                        text = { Text("Sign Out") },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                         onClick = {
-                                            viewModel.quickLogin(UserRole.BAKERY)
-                                            showRoleMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Pickup Partner: Rajat Verma") },
-                                        leadingIcon = { Icon(Icons.Default.LocalShipping, contentDescription = null) },
-                                        onClick = {
-                                            viewModel.quickLogin(UserRole.PICKUP_AGENT)
-                                            showRoleMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Admin: Rajesh Verma (HQ)") },
-                                        leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null) },
-                                        onClick = {
-                                            viewModel.quickLogin(UserRole.ADMIN)
-                                            showRoleMenu = false
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("NGO: Robin Hood Army") },
-                                        leadingIcon = { Icon(Icons.Default.VolunteerActivism, contentDescription = null) },
-                                        onClick = {
-                                            viewModel.quickLogin(UserRole.NGO)
+                                            viewModel.logout()
                                             showRoleMenu = false
                                         }
                                     )
                                 }
                             }
 
-                            // Logout Button
+                            // Direct Profile Action Button
                             IconButton(
-                                onClick = { viewModel.logout() },
+                                onClick = { viewModel.selectTab(SaveBiteTab.PROFILE) },
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
-                                    .testTag("btn_logout")
+                                    .testTag("btn_top_profile")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.ExitToApp,
-                                    contentDescription = "Log Out",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "My Profile",
+                                    tint = if (currentTab == SaveBiteTab.PROFILE) SaveBiteEmerald else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 )
                             }
                         },
@@ -352,8 +325,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                 }
             },
             bottomBar = {
-                // BottomBar is ONLY shown for CUSTOMER role (Deals, My Pickups, Impact).
-                // Merchants, Pickup Agents, Admins, and NGOs have their dedicated single-purpose dashboards!
+                // BottomBar is shown for CUSTOMER role (Deals, My Pickups, Impact, Profile)
                 if (selectedPackage == null && user.role == UserRole.CUSTOMER) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -406,6 +378,22 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                             ),
                             modifier = Modifier.testTag("nav_impact")
                         )
+
+                        NavigationBarItem(
+                            selected = currentTab == SaveBiteTab.PROFILE,
+                            onClick = {
+                                SoundHapticsManager.playClick(context)
+                                viewModel.selectTab(SaveBiteTab.PROFILE)
+                            },
+                            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                            label = { Text("Profile", fontSize = 11.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = SaveBiteEmerald,
+                                selectedTextColor = SaveBiteEmerald,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.testTag("nav_profile")
+                        )
                     }
                 }
             }
@@ -415,146 +403,186 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                when (user.role) {
-                    UserRole.CUSTOMER -> {
-                        if (selectedPackage != null) {
-                            PackageDetailScreen(
-                                pkg = selectedPackage!!,
-                                merchant = selectedMerchant,
-                                onBack = { viewModel.selectPackage(null) },
-                                onReserve = { quantity ->
-                                    viewModel.initiateRazorpayCheckout(selectedPackage!!, quantity)
+                if (currentTab == SaveBiteTab.PROFILE) {
+                    ProfileScreen(
+                        user = user,
+                        activeJwtToken = activeJwtToken,
+                        onBack = {
+                            viewModel.selectTab(
+                                when (user.role) {
+                                    UserRole.CUSTOMER, UserRole.NGO -> SaveBiteTab.CUSTOMER
+                                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> SaveBiteTab.MERCHANT_HUB
+                                    UserRole.PICKUP_AGENT -> SaveBiteTab.PICKUPS
+                                    UserRole.ADMIN -> SaveBiteTab.ADMIN
                                 }
                             )
-                        } else {
-                            when (currentTab) {
-                                SaveBiteTab.CUSTOMER -> {
-                                    CustomerHomeScreen(
-                                        packages = packagesWithMerchants,
-                                        searchQuery = searchQuery,
-                                        onSearchChange = { viewModel.setSearchQuery(it) },
-                                        selectedCategory = selectedCategory,
-                                        onCategorySelect = { viewModel.selectCategory(it) },
-                                        favoriteIds = favoriteIds,
-                                        onToggleFavorite = { viewModel.toggleFavorite(it) },
-                                        onPackageClick = { viewModel.selectPackage(it) }
-                                    )
-                                }
-                                SaveBiteTab.PICKUPS -> {
-                                    PickupsDashboardScreen(
-                                        orders = customerOrders,
-                                        onSimulateRedeem = { pin ->
-                                            viewModel.redeemOrder(pin) { _, _ -> }
-                                        },
-                                        onCancelOrder = { orderId ->
-                                            viewModel.cancelOrder(orderId)
-                                        },
-                                        onExploreClick = { viewModel.selectTab(SaveBiteTab.CUSTOMER) }
-                                    )
-                                }
-                                SaveBiteTab.IMPACT -> {
-                                    ImpactScreen(
-                                        currentUser = user,
-                                        customerOrders = customerOrders,
-                                        currentColorPalette = colorPalette,
-                                        currentThemeMode = themeMode,
-                                        onSelectColorPalette = { viewModel.setColorPalette(it) },
-                                        onSelectThemeMode = { viewModel.setThemeMode(it) },
-                                        onSwitchRole = { viewModel.quickLogin(it) },
-                                        onBadgeClick = { badgeName, desc, emoji, isUnlocked ->
-                                            viewModel.triggerCelebration(
-                                                CelebrationEvent(
-                                                    title = badgeName,
-                                                    subtitle = desc,
-                                                    iconEmoji = emoji,
-                                                    statHighlight = if (isUnlocked) "🎉 Verified Eco Badge Unlocked!" else "🔒 Keep rescuing surplus food to unlock this achievement!",
-                                                    isBadgeUnlock = true
+                        },
+                        onUpdateProfile = { name, phone, avatar, cb ->
+                            viewModel.updateProfile(name, phone, avatar, cb)
+                        },
+                        onChangePassword = { cur, newP, cb ->
+                            viewModel.changePassword(cur, newP, cb)
+                        },
+                        onDeleteAccount = { cb ->
+                            viewModel.deleteAccount(cb)
+                        },
+                        onLogout = { viewModel.logout() }
+                    )
+                } else if (currentTab == SaveBiteTab.ADMIN && user.role != UserRole.ADMIN) {
+                    AccessDeniedScreen(
+                        currentRole = user.role,
+                        requiredRole = "Platform Administrator",
+                        onReturnHome = { viewModel.selectTab(SaveBiteTab.CUSTOMER) },
+                        onLogout = { viewModel.logout() }
+                    )
+                } else if (currentTab == SaveBiteTab.MERCHANT_HUB && user.role != UserRole.BAKERY && user.role != UserRole.RESTAURANT && user.role != UserRole.CAFE && user.role != UserRole.SUPERMARKET) {
+                    AccessDeniedScreen(
+                        currentRole = user.role,
+                        requiredRole = "Merchant Kitchen Partner",
+                        onReturnHome = { viewModel.selectTab(SaveBiteTab.CUSTOMER) },
+                        onLogout = { viewModel.logout() }
+                    )
+                } else {
+                    when (user.role) {
+                        UserRole.CUSTOMER -> {
+                            if (selectedPackage != null) {
+                                PackageDetailScreen(
+                                    pkg = selectedPackage!!,
+                                    merchant = selectedMerchant,
+                                    onBack = { viewModel.selectPackage(null) },
+                                    onReserve = { quantity ->
+                                        viewModel.initiateRazorpayCheckout(selectedPackage!!, quantity)
+                                    }
+                                )
+                            } else {
+                                when (currentTab) {
+                                    SaveBiteTab.CUSTOMER -> {
+                                        CustomerHomeScreen(
+                                            packages = packagesWithMerchants,
+                                            searchQuery = searchQuery,
+                                            onSearchChange = { viewModel.setSearchQuery(it) },
+                                            selectedCategory = selectedCategory,
+                                            onCategorySelect = { viewModel.selectCategory(it) },
+                                            favoriteIds = favoriteIds,
+                                            onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                            onPackageClick = { viewModel.selectPackage(it) }
+                                        )
+                                    }
+                                    SaveBiteTab.PICKUPS -> {
+                                        PickupsDashboardScreen(
+                                            orders = customerOrders,
+                                            onSimulateRedeem = { pin ->
+                                                viewModel.redeemOrder(pin) { _, _ -> }
+                                            },
+                                            onCancelOrder = { orderId ->
+                                                viewModel.cancelOrder(orderId)
+                                            },
+                                            onExploreClick = { viewModel.selectTab(SaveBiteTab.CUSTOMER) }
+                                        )
+                                    }
+                                    SaveBiteTab.IMPACT -> {
+                                        ImpactScreen(
+                                            currentUser = user,
+                                            customerOrders = customerOrders,
+                                            currentColorPalette = colorPalette,
+                                            currentThemeMode = themeMode,
+                                            onSelectColorPalette = { viewModel.setColorPalette(it) },
+                                            onSelectThemeMode = { viewModel.setThemeMode(it) },
+                                            onBadgeClick = { badgeName, desc, emoji, isUnlocked ->
+                                                viewModel.triggerCelebration(
+                                                    CelebrationEvent(
+                                                        title = badgeName,
+                                                        subtitle = desc,
+                                                        iconEmoji = emoji,
+                                                        statHighlight = if (isUnlocked) "🎉 Verified Eco Badge Unlocked!" else "🔒 Keep rescuing surplus food to unlock this achievement!",
+                                                        isBadgeUnlock = true
+                                                    )
                                                 )
-                                            )
-                                        }
-                                    )
-                                }
-                                else -> {
-                                    CustomerHomeScreen(
-                                        packages = packagesWithMerchants,
-                                        searchQuery = searchQuery,
-                                        onSearchChange = { viewModel.setSearchQuery(it) },
-                                        selectedCategory = selectedCategory,
-                                        onCategorySelect = { viewModel.selectCategory(it) },
-                                        favoriteIds = favoriteIds,
-                                        onToggleFavorite = { viewModel.toggleFavorite(it) },
-                                        onPackageClick = { viewModel.selectPackage(it) }
-                                    )
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        CustomerHomeScreen(
+                                            packages = packagesWithMerchants,
+                                            searchQuery = searchQuery,
+                                            onSearchChange = { viewModel.setSearchQuery(it) },
+                                            selectedCategory = selectedCategory,
+                                            onCategorySelect = { viewModel.selectCategory(it) },
+                                            favoriteIds = favoriteIds,
+                                            onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                            onPackageClick = { viewModel.selectPackage(it) }
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
-                        val activeMerchant = allMerchants.firstOrNull { it.id == selectedMerchantStoreId }
-                            ?: allMerchants.firstOrNull { it.userId == user.id }
-                            ?: allMerchants.firstOrNull()
-                        val storePackages = allPackages.filter { it.merchantId == (activeMerchant?.id ?: "merchant_artisan_bakery") }
+                        UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
+                            val activeMerchant = allMerchants.firstOrNull { it.id == selectedMerchantStoreId }
+                                ?: allMerchants.firstOrNull { it.userId == user.id }
+                                ?: allMerchants.firstOrNull()
+                            val storePackages = allPackages.filter { it.merchantId == (activeMerchant?.id ?: "merchant_artisan_bakery") }
 
-                        MerchantDashboardScreen(
-                            merchantName = activeMerchant?.businessName ?: user.name,
-                            packages = storePackages,
-                            merchantOrders = merchantOrders,
-                            onRedeemCode = { code ->
-                                viewModel.redeemOrder(code) { _, _ -> }
-                            },
-                            onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation ->
-                                viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation)
-                            },
-                            allMerchants = allMerchants,
-                            selectedMerchantId = selectedMerchantStoreId,
-                            onSelectMerchantStore = { viewModel.selectMerchantStore(it) },
-                            onUpdateStock = { pkgId, newQty -> viewModel.updatePackageStock(pkgId, newQty) }
-                        )
-                    }
+                            MerchantDashboardScreen(
+                                merchantName = activeMerchant?.businessName ?: user.name,
+                                packages = storePackages,
+                                merchantOrders = merchantOrders,
+                                onRedeemCode = { code ->
+                                    viewModel.redeemOrder(code) { _, _ -> }
+                                },
+                                onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation ->
+                                    viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation)
+                                },
+                                allMerchants = allMerchants,
+                                selectedMerchantId = selectedMerchantStoreId,
+                                onSelectMerchantStore = { viewModel.selectMerchantStore(it) },
+                                onUpdateStock = { pkgId, newQty -> viewModel.updatePackageStock(pkgId, newQty) }
+                            )
+                        }
 
-                    UserRole.PICKUP_AGENT -> {
-                        PickupsDashboardScreen(
-                            orders = allOrders,
-                            onSimulateRedeem = { pin ->
-                                viewModel.redeemOrder(pin) { _, _ -> }
-                            },
-                            onCancelOrder = { orderId ->
-                                viewModel.cancelOrder(orderId)
-                            },
-                            onExploreClick = { }
-                        )
-                    }
+                        UserRole.PICKUP_AGENT -> {
+                            PickupsDashboardScreen(
+                                orders = allOrders,
+                                onSimulateRedeem = { pin ->
+                                    viewModel.redeemOrder(pin) { _, _ -> }
+                                },
+                                onCancelOrder = { orderId ->
+                                    viewModel.cancelOrder(orderId)
+                                },
+                                onExploreClick = { }
+                            )
+                        }
 
-                    UserRole.ADMIN -> {
-                        AdminDashboardScreen(
-                            merchants = allMerchants,
-                            packages = allPackages,
-                            orders = allOrders,
-                            users = allUsers,
-                            onToggleMerchantVerification = { merchantId, verified ->
-                                viewModel.updateMerchantVerification(merchantId, verified)
-                            },
-                            onRestockAll = { viewModel.restockAllPackages() },
-                            onGenerateDemoOrder = { viewModel.generateDemoTestOrder() },
-                            onEmergencyNgoBroadcast = { title, qty, location ->
-                                viewModel.dispatchEmergencyNgoAlert(title, qty, location)
-                            }
-                        )
-                    }
-
-                    UserRole.NGO -> {
-                        NgoDashboardScreen(
-                            ngoName = user.name,
-                            donationPackages = allPackages,
-                            onClaimDonation = { pkgId ->
-                                val pkg = allPackages.find { it.id == pkgId }
-                                if (pkg != null) {
-                                    viewModel.reservePackage(pkg, 1)
+                        UserRole.ADMIN -> {
+                            AdminDashboardScreen(
+                                merchants = allMerchants,
+                                packages = allPackages,
+                                orders = allOrders,
+                                users = allUsers,
+                                onToggleMerchantVerification = { merchantId, verified ->
+                                    viewModel.updateMerchantVerification(merchantId, verified)
+                                },
+                                onRestockAll = { viewModel.restockAllPackages() },
+                                onGenerateDemoOrder = { viewModel.generateDemoTestOrder() },
+                                onEmergencyNgoBroadcast = { title, qty, location ->
+                                    viewModel.dispatchEmergencyNgoAlert(title, qty, location)
                                 }
-                            },
-                            onLogout = { viewModel.logout() }
-                        )
+                            )
+                        }
+
+                        UserRole.NGO -> {
+                            NgoDashboardScreen(
+                                ngoName = user.name,
+                                donationPackages = allPackages,
+                                onClaimDonation = { pkgId ->
+                                    val pkg = allPackages.find { it.id == pkgId }
+                                    if (pkg != null) {
+                                        viewModel.reservePackage(pkg, 1)
+                                    }
+                                },
+                                onLogout = { viewModel.logout() }
+                            )
+                        }
                     }
                 }
 

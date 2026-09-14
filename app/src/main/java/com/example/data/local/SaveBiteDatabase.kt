@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,7 +60,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_production_db_v5"
+                    "savebite_enterprise_db_v6"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
@@ -82,55 +82,62 @@ abstract class SaveBiteDatabase : RoomDatabase() {
         }
 
         private suspend fun seedProductionData(db: SaveBiteDatabase) {
+            val defaultPasswordHash = com.example.util.PasswordHasher.hashPassword("password123")
             // Seed Indian Users & Rescuers
             val users = listOf(
                 UserEntity(
                     id = "user_customer_elena",
                     email = "aarav.sharma@savebite.in",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Aarav Sharma",
                     phone = "+91 98450 23145",
-                    role = UserRole.CUSTOMER
+                    role = UserRole.CUSTOMER,
+                    isEmailVerified = true
                 ),
                 UserEntity(
                     id = "user_merchant_artisan",
                     email = "vikramaditya@bikanersweets.in",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Chef Vikramaditya Singh",
                     phone = "+91 98110 54321",
-                    role = UserRole.BAKERY
+                    role = UserRole.BAKERY,
+                    isEmailVerified = true
                 ),
                 UserEntity(
                     id = "user_merchant_bistro",
                     email = "tanvi.reddy@saravanabhavan.in",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Chef Tanvi Reddy",
                     phone = "+91 97410 88901",
-                    role = UserRole.RESTAURANT
+                    role = UserRole.RESTAURANT,
+                    isEmailVerified = true
                 ),
                 UserEntity(
                     id = "user_pickup_rajat",
                     email = "rajat.courier@savebite.in",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Rajat Verma (Pickup Partner)",
                     phone = "+91 98765 43210",
-                    role = UserRole.PICKUP_AGENT
+                    role = UserRole.PICKUP_AGENT,
+                    isEmailVerified = true
                 ),
                 UserEntity(
                     id = "user_ngo_rescue",
                     email = "ananya@robinhoodarmy.org",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Ananya Mukherjee",
                     phone = "+91 99301 77654",
-                    role = UserRole.NGO
+                    role = UserRole.NGO,
+                    isEmailVerified = true
                 ),
                 UserEntity(
                     id = "user_admin_rajesh",
                     email = "admin@savebite.in",
-                    password = "password123",
+                    password = defaultPasswordHash,
                     name = "Rajesh Verma (Platform Admin)",
                     phone = "+91 98001 11222",
-                    role = UserRole.ADMIN
+                    role = UserRole.ADMIN,
+                    isEmailVerified = true
                 )
             )
             db.userDao().insertUsers(users)

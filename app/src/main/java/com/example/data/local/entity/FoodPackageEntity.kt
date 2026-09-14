@@ -1,10 +1,17 @@
 package com.example.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.data.model.PackageCategory
 
-@Entity(tableName = "food_packages")
+@Entity(
+    tableName = "food_packages",
+    indices = [
+        Index(value = ["merchantId"]),
+        Index(value = ["isActive"])
+    ]
+)
 data class FoodPackageEntity(
     @PrimaryKey val id: String,
     val merchantId: String,

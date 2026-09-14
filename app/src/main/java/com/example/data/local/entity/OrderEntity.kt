@@ -1,10 +1,19 @@
 package com.example.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.data.model.OrderStatus
 
-@Entity(tableName = "orders")
+@Entity(
+    tableName = "orders",
+    indices = [
+        Index(value = ["customerId"]),
+        Index(value = ["merchantId"]),
+        Index(value = ["pickupPin"]),
+        Index(value = ["status"])
+    ]
+)
 data class OrderEntity(
     @PrimaryKey val id: String,
     val orderNumber: String,

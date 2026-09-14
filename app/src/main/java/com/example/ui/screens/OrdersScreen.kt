@@ -469,9 +469,10 @@ fun OrdersScreen(
                                     }
 
                                     Text(
-                                        text = if (isCancelled) "₹0 refunded" else "${formatRupees(order.totalPrice)} (Saved ${formatRupees(order.totalSavings)})",
+                                        text = if (isCancelled) "100% Refunded: ${formatRupees(order.totalPrice)}" else "${formatRupees(order.totalPrice)} (Saved ${formatRupees(order.totalSavings)})",
                                         style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isCancelled) SaveBiteEmerald else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -482,13 +483,46 @@ fun OrdersScreen(
         }
     }
 
-    // Confirmation dialog for cancellation
+    // Confirmation dialog for cancellation & automated Razorpay refund
     orderToCancel?.let { order ->
         AlertDialog(
             onDismissRequest = { orderToCancel = null },
-            title = { Text("Cancel Reservation?", fontWeight = FontWeight.Bold) },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "💰", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Cancel & Instant Refund", fontWeight = FontWeight.Bold)
+                }
+            },
             text = {
-                Text("Are you sure you want to cancel ${order.packageTitle} from ${order.merchantName}? The package will be returned to the live surplus marketplace for other rescuers.")
+                Column {
+                    Text(
+                        text = "Are you sure you want to cancel your reservation for ${order.packageTitle} from ${order.merchantName}?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = SaveBiteEmerald.copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "✓ 100% Instant Refund via Razorpay",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = SaveBiteEmerald
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${formatRupees(order.totalPrice)} will be automatically reversed to your original payment method. The meal bag will be returned to the live surplus catalog for other rescuers.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -499,7 +533,7 @@ fun OrdersScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SaveBiteBadgeRed)
                 ) {
-                    Text("Yes, Cancel")
+                    Text("Confirm Cancel & Refund")
                 }
             },
             dismissButton = {
