@@ -44,6 +44,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.util.SoundHapticsManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -96,7 +97,10 @@ fun OrdersScreen(
         ) {
             Tab(
                 selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
+                onClick = {
+                    SoundHapticsManager.playClick(context)
+                    selectedTab = 0
+                },
                 text = {
                     Text(
                         "Active Pickups (${activeOrders.size})",
@@ -107,7 +111,10 @@ fun OrdersScreen(
             )
             Tab(
                 selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
+                onClick = {
+                    SoundHapticsManager.playClick(context)
+                    selectedTab = 1
+                },
                 text = {
                     Text(
                         "Past Orders (${completedOrders.size})",
@@ -327,7 +334,10 @@ fun OrdersScreen(
 
                                 // Fast verification simulation button
                                 Button(
-                                    onClick = { onSimulateRedeem(order.pickupPin) },
+                                    onClick = {
+                                        SoundHapticsManager.playClick(context)
+                                        onSimulateRedeem(order.pickupPin)
+                                    },
                                     colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -482,6 +492,7 @@ fun OrdersScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        SoundHapticsManager.vibrateError(context)
                         onCancelOrder(order.id)
                         orderToCancel = null
                     },

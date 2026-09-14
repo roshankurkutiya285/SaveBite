@@ -50,7 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import com.example.util.SoundHapticsManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -81,6 +83,7 @@ fun MerchantDashboardScreen(
     ) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var redeemInput by remember { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
 
@@ -191,6 +194,7 @@ fun MerchantDashboardScreen(
                         Button(
                             onClick = {
                                 if (redeemInput.isNotBlank()) {
+                                    SoundHapticsManager.playClick(context)
                                     onRedeemCode(redeemInput)
                                     redeemInput = ""
                                 }
@@ -296,7 +300,10 @@ fun MerchantDashboardScreen(
                         }
 
                         Button(
-                            onClick = { onRedeemCode(order.pickupPin) },
+                            onClick = {
+                                SoundHapticsManager.playClick(context)
+                                onRedeemCode(order.pickupPin)
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

@@ -109,6 +109,8 @@ fun InteractiveSurplusMap(
             offsets
         }
 
+        val mapEmerald = SaveBiteEmerald
+
         // Map Canvas
         Canvas(
             modifier = Modifier
@@ -194,12 +196,12 @@ fun InteractiveSurplusMap(
                 else -> canvasW * 0.60f
             }
             drawCircle(
-                color = SaveBiteEmerald.copy(alpha = 0.08f),
+                color = mapEmerald.copy(alpha = 0.08f),
                 radius = radiusPx,
                 center = userCenter
             )
             drawCircle(
-                color = SaveBiteEmerald.copy(alpha = 0.35f),
+                color = mapEmerald.copy(alpha = 0.35f),
                 radius = radiusPx,
                 center = userCenter,
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
@@ -207,7 +209,7 @@ fun InteractiveSurplusMap(
 
             // User pulse beacon
             drawCircle(
-                color = SaveBiteEmerald.copy(alpha = 0.25f),
+                color = mapEmerald.copy(alpha = 0.25f),
                 radius = 28f,
                 center = userCenter
             )
@@ -217,7 +219,7 @@ fun InteractiveSurplusMap(
                 center = userCenter
             )
             drawCircle(
-                color = SaveBiteEmerald,
+                color = mapEmerald,
                 radius = 10f,
                 center = userCenter
             )

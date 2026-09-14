@@ -2,6 +2,7 @@ package com.example.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -11,44 +12,57 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = SaveBiteEmeraldLight,
-    onPrimary = Color.White,
-    primaryContainer = SaveBiteEmeraldDark,
-    onPrimaryContainer = SaveBiteContainerGreen,
-    secondary = SaveBiteAmber,
-    onSecondary = Color.Black,
-    secondaryContainer = SaveBiteAmberDark,
-    onSecondaryContainer = SaveBiteAmberLight,
-    background = Color(0xFF0F1714),
-    surface = Color(0xFF16221E),
-    onBackground = Color(0xFFECEFEA),
-    onSurface = Color(0xFFECEFEA),
-    surfaceVariant = Color(0xFF22332C),
-    outline = Color(0xFF3B5047)
-)
+fun buildLightColorScheme(palette: AppColorPalette): ColorScheme {
+    return lightColorScheme(
+        primary = palette.primaryColor,
+        onPrimary = Color.White,
+        primaryContainer = palette.primaryContainer,
+        onPrimaryContainer = palette.onPrimaryContainer,
+        secondary = palette.secondaryColor,
+        onSecondary = Color.White,
+        secondaryContainer = palette.secondaryContainer,
+        onSecondaryContainer = palette.onSecondaryContainer,
+        tertiary = palette.secondaryDark,
+        onTertiary = Color.White,
+        background = palette.canvasLight,
+        surface = Color(0xFFFFFFFF),
+        surfaceVariant = palette.surfaceVariantLight,
+        onBackground = Color(0xFF131D18),
+        onSurface = Color(0xFF131D18),
+        onSurfaceVariant = Color(0xFF4B5563),
+        outline = palette.borderLight,
+        outlineVariant = palette.borderLight.copy(alpha = 0.5f)
+    )
+}
 
-private val LightColorScheme = lightColorScheme(
-    primary = SaveBiteEmerald,
-    onPrimary = Color.White,
-    primaryContainer = SaveBiteContainerGreen,
-    onPrimaryContainer = SaveBiteOnContainerGreen,
-    secondary = SaveBiteAmber,
-    onSecondary = Color.White,
-    secondaryContainer = SaveBiteAmberLight,
-    onSecondaryContainer = SaveBiteAmberDark,
-    background = SaveBiteCanvas,
-    surface = SaveBiteSurface,
-    surfaceVariant = SaveBiteSurfaceVariant,
-    onBackground = SaveBiteTextPrimary,
-    onSurface = SaveBiteTextPrimary,
-    outline = SaveBiteBorder
-)
+fun buildDarkColorScheme(palette: AppColorPalette): ColorScheme {
+    return darkColorScheme(
+        primary = palette.primaryLight,
+        onPrimary = Color(0xFF071B13),
+        primaryContainer = palette.primaryDark,
+        onPrimaryContainer = palette.primaryContainer,
+        secondary = palette.secondaryLight,
+        onSecondary = Color(0xFF2E1700),
+        secondaryContainer = palette.secondaryDark,
+        onSecondaryContainer = palette.secondaryLight,
+        tertiary = palette.secondaryColor,
+        onTertiary = Color.Black,
+        background = palette.canvasDark,
+        surface = palette.surfaceDark,
+        surfaceVariant = palette.surfaceVariantDark,
+        onBackground = Color(0xFFF1F5F2),
+        onSurface = Color(0xFFF1F5F2),
+        onSurfaceVariant = Color(0xFF9CA3AF),
+        outline = palette.borderDark,
+        outlineVariant = palette.borderDark.copy(alpha = 0.5f)
+    )
+}
 
 @Composable
 fun SaveBiteTheme(
+    palette: AppColorPalette = AppColorPalette.FRESH_EMERALD,
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep consistent SaveBite branding across Android OS versions
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -56,8 +70,8 @@ fun SaveBiteTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> buildDarkColorScheme(palette)
+        else -> buildLightColorScheme(palette)
     }
 
     MaterialTheme(

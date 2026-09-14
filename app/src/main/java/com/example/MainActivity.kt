@@ -39,16 +39,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.ui.SaveBiteTab
 import com.example.ui.SaveBiteViewModel
+import com.example.ui.components.CelebrationDialog
 import com.example.ui.screens.CustomerHomeScreen
 import com.example.ui.screens.ImpactScreen
 import com.example.ui.screens.MerchantDashboardScreen
 import com.example.ui.screens.OrdersScreen
 import com.example.ui.screens.PackageDetailScreen
+import com.example.ui.theme.AppColorPalette
+import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
 import com.example.ui.theme.SaveBiteTheme
+import com.example.util.SoundHapticsManager
 
 class MainActivity : ComponentActivity() {
 
@@ -59,7 +65,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            SaveBiteTheme {
+            val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val isDark = when (themeMode) {
+                AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+                AppThemeMode.LIGHT -> false
+                AppThemeMode.DARK -> true
+            }
+
+            SaveBiteTheme(palette = colorPalette, darkTheme = isDark) {
                 SaveBiteApp(viewModel = viewModel)
             }
         }
@@ -81,6 +95,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
     val selectedPackage by viewModel.selectedPackage.collectAsStateWithLifecycle()
     val selectedMerchant by viewModel.selectedMerchant.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val celebrationEvent by viewModel.celebrationEvent.collectAsStateWithLifecycle()
+    val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -144,7 +162,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                 ) {
                     NavigationBarItem(
                         selected = currentTab == SaveBiteTab.EXPLORE,
-                        onClick = { viewModel.selectTab(SaveBiteTab.EXPLORE) },
+                        onClick = {
+                            SoundHapticsManager.playClick(context)
+                            viewModel.selectTab(SaveBiteTab.EXPLORE)
+                        },
                         icon = { Icon(Icons.Default.Explore, contentDescription = "Explore") },
                         label = { Text("Explore") },
                         colors = NavigationBarItemDefaults.colors(
@@ -157,7 +178,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
 
                     NavigationBarItem(
                         selected = currentTab == SaveBiteTab.PICKUPS,
-                        onClick = { viewModel.selectTab(SaveBiteTab.PICKUPS) },
+                        onClick = {
+                            SoundHapticsManager.playClick(context)
+                            viewModel.selectTab(SaveBiteTab.PICKUPS)
+                        },
                         icon = { Icon(Icons.Default.QrCode2, contentDescription = "My Pickups") },
                         label = { Text("My Pickups") },
                         colors = NavigationBarItemDefaults.colors(
@@ -170,7 +194,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
 
                     NavigationBarItem(
                         selected = currentTab == SaveBiteTab.MERCHANT_HUB,
-                        onClick = { viewModel.selectTab(SaveBiteTab.MERCHANT_HUB) },
+                        onClick = {
+                            SoundHapticsManager.playClick(context)
+                            viewModel.selectTab(SaveBiteTab.MERCHANT_HUB)
+                        },
                         icon = { Icon(Icons.Default.Store, contentDescription = "Merchant") },
                         label = { Text("Merchant") },
                         colors = NavigationBarItemDefaults.colors(
@@ -183,7 +210,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
 
                     NavigationBarItem(
                         selected = currentTab == SaveBiteTab.IMPACT,
-                        onClick = { viewModel.selectTab(SaveBiteTab.IMPACT) },
+                        onClick = {
+                            SoundHapticsManager.playClick(context)
+                            viewModel.selectTab(SaveBiteTab.IMPACT)
+                        },
                         icon = { Icon(Icons.Default.Nature, contentDescription = "Impact") },
                         label = { Text("Impact") },
                         colors = NavigationBarItemDefaults.colors(
@@ -254,10 +284,38 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         ImpactScreen(
                             currentUser = currentUser,
                             customerOrders = customerOrders,
-                            onSwitchRole = { viewModel.switchUserRole(it) }
+                            currentColorPalette = colorPalette,
+                            currentThemeMode = themeMode,
+                            onSelectColorPalette = { viewModel.setColorPalette(it) },
+                            onSelectThemeMode = { viewModel.setThemeMode(it) },
+                            onSwitchRole = { viewModel.switchUserRole(it) },
+                            onBadgeClick = { badgeName, desc, emoji, isUnlocked ->
+                                viewModel.triggerCelebration(
+                                    com.example.ui.CelebrationEvent(
+                                        title = badgeName,
+                                        subtitle = desc,
+                                        iconEmoji = emoji,
+                                        statHighlight = if (isUnlocked) "🎉 Verified Eco Badge Unlocked!" else "🔒 Keep rescuing surplus food to unlock this achievement!",
+                                        isBadgeUnlock = true
+                                    )
+                                )
+                            }
                         )
                     }
                 }
+            }
+
+            // Global Confetti & Haptic Celebration Modal
+            celebrationEvent?.let { event ->
+                CelebrationDialog(
+                    isVisible = true,
+                    title = event.title,
+                    subtitle = event.subtitle,
+                    iconEmoji = event.iconEmoji,
+                    statHighlight = event.statHighlight,
+                    isBadgeUnlock = event.isBadgeUnlock,
+                    onDismiss = { viewModel.dismissCelebration() }
+                )
             }
         }
     }

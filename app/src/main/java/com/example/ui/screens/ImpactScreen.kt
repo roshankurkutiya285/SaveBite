@@ -18,12 +18,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Co2
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Forest
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Nature
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -53,14 +58,22 @@ import com.example.data.local.entity.OrderEntity
 import com.example.data.local.entity.UserEntity
 import com.example.data.model.OrderStatus
 import com.example.data.model.UserRole
+import com.example.ui.theme.AppColorPalette
+import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
+import com.example.util.SoundHapticsManager
 
 @Composable
 fun ImpactScreen(
     currentUser: UserEntity,
     customerOrders: List<OrderEntity>,
+    currentColorPalette: AppColorPalette,
+    currentThemeMode: AppThemeMode,
+    onSelectColorPalette: (AppColorPalette) -> Unit,
+    onSelectThemeMode: (AppThemeMode) -> Unit,
     onSwitchRole: (UserRole) -> Unit,
+    onBadgeClick: (badgeName: String, desc: String, emoji: String, isUnlocked: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -308,7 +321,10 @@ fun ImpactScreen(
                     description = "Rescue your very first surplus bag from a local business",
                     isUnlocked = totalMealsRescued >= 1,
                     progress = (totalMealsRescued / 1f).coerceIn(0f, 1f),
-                    iconEmoji = "🌱"
+                    iconEmoji = "🌱",
+                    onClick = {
+                        onBadgeClick("Seedling Saver", "Rescue your very first surplus bag from a local business", "🌱", totalMealsRescued >= 1)
+                    }
                 )
 
                 EcoBadgeRow(
@@ -316,7 +332,10 @@ fun ImpactScreen(
                     description = "Rescue 5 surplus bags from entering landfill",
                     isUnlocked = totalMealsRescued >= 5,
                     progress = (totalMealsRescued / 5f).coerceIn(0f, 1f),
-                    iconEmoji = "🛡️"
+                    iconEmoji = "🛡️",
+                    onClick = {
+                        onBadgeClick("Waste Warrior", "Rescue 5 surplus bags from entering landfill", "🛡️", totalMealsRescued >= 5)
+                    }
                 )
 
                 EcoBadgeRow(
@@ -324,7 +343,10 @@ fun ImpactScreen(
                     description = "Prevent at least 15 kg of greenhouse emissions",
                     isUnlocked = totalCo2Saved >= 15.0,
                     progress = (totalCo2Saved.toFloat() / 15f).coerceIn(0f, 1f),
-                    iconEmoji = "🌍"
+                    iconEmoji = "🌍",
+                    onClick = {
+                        onBadgeClick("Carbon Crusader", "Prevent at least 15 kg of greenhouse emissions", "🌍", totalCo2Saved >= 15.0)
+                    }
                 )
 
                 EcoBadgeRow(
@@ -332,7 +354,10 @@ fun ImpactScreen(
                     description = "Support 3 different local bakeries, cafes, and grocers",
                     isUnlocked = completedOrders.map { it.merchantId }.distinct().size >= 3,
                     progress = (completedOrders.map { it.merchantId }.distinct().size / 3f).coerceIn(0f, 1f),
-                    iconEmoji = "🥐"
+                    iconEmoji = "🥐",
+                    onClick = {
+                        onBadgeClick("Community Pillar", "Support 3 different local bakeries, cafes, and grocers", "🥐", completedOrders.map { it.merchantId }.distinct().size >= 3)
+                    }
                 )
             }
         }
@@ -421,6 +446,195 @@ fun ImpactScreen(
                 }
             }
         }
+
+        // Theme & Appearance Customization
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Theme & Appearance",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Personalize colors and display mode",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Display Mode",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AppThemeMode.entries.forEach { mode ->
+                            val isSelected = currentThemeMode == mode
+                            Button(
+                                onClick = {
+                                    SoundHapticsManager.playClick(context)
+                                    onSelectThemeMode(mode)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    val icon = when (mode) {
+                                        AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                        AppThemeMode.LIGHT -> Icons.Default.LightMode
+                                        AppThemeMode.DARK -> Icons.Default.DarkMode
+                                    }
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = mode.displayName,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = "Color Palette",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppColorPalette.entries.forEach { palette ->
+                            val isSelected = currentColorPalette == palette
+                            Card(
+                                onClick = {
+                                    SoundHapticsManager.playClick(context)
+                                    onSelectColorPalette(palette)
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                ),
+                                border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Palette preview dots
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy((-4).dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .clip(CircleShape)
+                                                    .background(palette.primaryColor)
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                                    .background(palette.secondaryColor)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column {
+                                            Text(
+                                                text = palette.displayName,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = palette.subtitle,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                                            )
+                                        }
+                                    }
+
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Active",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -430,9 +644,11 @@ fun EcoBadgeRow(
     description: String,
     isUnlocked: Boolean,
     progress: Float,
-    iconEmoji: String
+    iconEmoji: String,
+    onClick: () -> Unit
 ) {
     Card(
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isUnlocked) SaveBiteEmerald.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface

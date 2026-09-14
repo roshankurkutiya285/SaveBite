@@ -13,6 +13,8 @@ import com.example.data.model.OrderStatus
 import com.example.data.model.PackageCategory
 import com.example.data.model.UserRole
 import com.example.data.repository.SaveBiteRepository
+import com.example.ui.theme.AppColorPalette
+import com.example.ui.theme.AppThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,14 @@ enum class SaveBiteTab {
     IMPACT
 }
 
+data class CelebrationEvent(
+    val title: String,
+    val subtitle: String,
+    val iconEmoji: String,
+    val statHighlight: String? = null,
+    val isBadgeUnlock: Boolean = false
+)
+
 class SaveBiteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: SaveBiteRepository
@@ -44,6 +54,17 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         )
     )
     val currentUser: StateFlow<UserEntity> = _currentUser.asStateFlow()
+
+    // Celebration modal event
+    private val _celebrationEvent = MutableStateFlow<CelebrationEvent?>(null)
+    val celebrationEvent: StateFlow<CelebrationEvent?> = _celebrationEvent.asStateFlow()
+
+    // Theme & Appearance Customization
+    private val _colorPalette = MutableStateFlow(AppColorPalette.FRESH_EMERALD)
+    val colorPalette: StateFlow<AppColorPalette> = _colorPalette.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
     // Navigation & UI selection state
     private val _currentTab = MutableStateFlow(SaveBiteTab.EXPLORE)
@@ -180,12 +201,27 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
             val result = repository.verifyAndCompletePickup(pinOrQr)
             result.onSuccess { order ->
                 _snackbarMessage.value = "Verified! Order ${order.orderNumber} successfully collected."
+                _celebrationEvent.value = CelebrationEvent(
+                    title = "Surplus Rescued!",
+                    subtitle = "Order ${order.orderNumber} (${order.packageTitle}) is successfully verified and collected.",
+                    iconEmoji = "🌱",
+                    statHighlight = "🎉 Avoided ${"%.1f".format(order.co2SavedKg)} kg CO₂ • Saved $${"%.2f".format(order.totalSavings)}",
+                    isBadgeUnlock = false
+                )
                 onResult(true, "Collected: ${order.packageTitle} (${order.orderNumber})")
             }.onFailure { err ->
                 _snackbarMessage.value = err.message ?: "Verification failed."
                 onResult(false, err.message ?: "Verification failed.")
             }
         }
+    }
+
+    fun triggerCelebration(event: CelebrationEvent) {
+        _celebrationEvent.value = event
+    }
+
+    fun dismissCelebration() {
+        _celebrationEvent.value = null
     }
 
     fun cancelOrder(orderId: String) {
@@ -197,6 +233,16 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
                 _snackbarMessage.value = err.message ?: "Failed to cancel reservation."
             }
         }
+    }
+
+    fun setColorPalette(palette: AppColorPalette) {
+        _colorPalette.value = palette
+        _snackbarMessage.value = "Theme switched to ${palette.displayName}"
+    }
+
+    fun setThemeMode(mode: AppThemeMode) {
+        _themeMode.value = mode
+        _snackbarMessage.value = "Theme mode: ${mode.displayName}"
     }
 
     fun switchUserRole(role: UserRole) {
