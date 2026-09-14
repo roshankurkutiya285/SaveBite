@@ -1,6 +1,6 @@
 {
   "name": "SaveBite",
-  "description": "Surplus food marketplace connecting food businesses and consumers to eliminate waste and save money.",
+  "description": "Indian surplus food rescue app with JWT authentication, Email OTP passwordless login, Razorpay payment gateway integration, and role-specific dashboards for Customers, Merchants, Pickup Agents, Admins, and NGOs.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

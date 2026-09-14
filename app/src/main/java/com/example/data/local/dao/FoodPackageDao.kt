@@ -37,4 +37,12 @@ interface FoodPackageDao {
 
     @Query("UPDATE food_packages SET quantityAvailable = quantityAvailable + :quantity WHERE id = :packageId")
     suspend fun incrementStock(packageId: String, quantity: Int): Int
+    @Query("UPDATE food_packages SET quantityAvailable = :quantity WHERE id = :packageId")
+    suspend fun updateStock(packageId: String, quantity: Int): Int
+
+    @Query("UPDATE food_packages SET isActive = :isActive WHERE id = :packageId")
+    suspend fun updateActiveStatus(packageId: String, isActive: Boolean): Int
+
+    @Query("UPDATE food_packages SET quantityAvailable = initialQuantity WHERE isActive = 1")
+    suspend fun restockAllPackages(): Int
 }

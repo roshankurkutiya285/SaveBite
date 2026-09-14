@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,7 +60,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_production_db_v3"
+                    "savebite_production_db_v5"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
@@ -87,6 +87,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 UserEntity(
                     id = "user_customer_elena",
                     email = "aarav.sharma@savebite.in",
+                    password = "password123",
                     name = "Aarav Sharma",
                     phone = "+91 98450 23145",
                     role = UserRole.CUSTOMER
@@ -94,6 +95,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 UserEntity(
                     id = "user_merchant_artisan",
                     email = "vikramaditya@bikanersweets.in",
+                    password = "password123",
                     name = "Chef Vikramaditya Singh",
                     phone = "+91 98110 54321",
                     role = UserRole.BAKERY
@@ -101,16 +103,34 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 UserEntity(
                     id = "user_merchant_bistro",
                     email = "tanvi.reddy@saravanabhavan.in",
+                    password = "password123",
                     name = "Chef Tanvi Reddy",
                     phone = "+91 97410 88901",
                     role = UserRole.RESTAURANT
                 ),
                 UserEntity(
+                    id = "user_pickup_rajat",
+                    email = "rajat.courier@savebite.in",
+                    password = "password123",
+                    name = "Rajat Verma (Pickup Partner)",
+                    phone = "+91 98765 43210",
+                    role = UserRole.PICKUP_AGENT
+                ),
+                UserEntity(
                     id = "user_ngo_rescue",
                     email = "ananya@robinhoodarmy.org",
+                    password = "password123",
                     name = "Ananya Mukherjee",
                     phone = "+91 99301 77654",
                     role = UserRole.NGO
+                ),
+                UserEntity(
+                    id = "user_admin_rajesh",
+                    email = "admin@savebite.in",
+                    password = "password123",
+                    name = "Rajesh Verma (Platform Admin)",
+                    phone = "+91 98001 11222",
+                    role = UserRole.ADMIN
                 )
             )
             db.userDao().insertUsers(users)
@@ -361,7 +381,9 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 status = OrderStatus.RESERVED,
                 pickupWindow = "Today 7:00 PM - 8:30 PM",
                 co2SavedKg = 3.2,
-                reservedAt = System.currentTimeMillis() - 1800000L // 30 mins ago
+                reservedAt = System.currentTimeMillis() - 1800000L, // 30 mins ago
+                paymentMethod = "RAZORPAY_UPI",
+                razorpayPaymentId = "pay_rzp_demo_8492"
             )
             db.orderDao().insertOrder(initialOrder)
         }

@@ -136,7 +136,7 @@ fun PackageDetailScreen(
                         onClick = { onReserve(quantity) },
                         enabled = pkg.quantityAvailable > 0,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SaveBiteEmerald
+                            containerColor = Color(0xFF0C2340)
                         ),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.testTag("confirm_reserve_button")
@@ -144,12 +144,14 @@ fun PackageDetailScreen(
                         Icon(
                             imageVector = Icons.Default.ShoppingBag,
                             contentDescription = null,
+                            tint = Color(0xFF38BDF8),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (pkg.quantityAvailable > 0) "Reserve & Get QR" else "Sold Out",
-                            fontWeight = FontWeight.Bold
+                            text = if (pkg.quantityAvailable > 0) "Pay with Razorpay" else "Sold Out",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 }
@@ -389,6 +391,51 @@ fun PackageDetailScreen(
                             text = "By rescuing this package, you prevent ${"%.1f".format(pkg.co2SavedKg * quantity)} kg of CO₂ emissions and save good food from landfill waste.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Razorpay Payment Security Guarantee Card
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("razorpay_security_guarantee_card")
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF0C2340),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Secured by Razorpay Gateway",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0C2340)
+                        )
+                        Text(
+                            text = "Instant payment confirmation with UPI (GPay, PhonePe, Paytm), Cards & NetBanking. Instant refund if uncollected.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF475569)
                         )
                     }
                 }

@@ -8,6 +8,7 @@ import com.example.data.model.UserRole
 data class UserEntity(
     @PrimaryKey val id: String,
     val email: String,
+    val password: String = "password123",
     val name: String,
     val phone: String,
     val role: UserRole,

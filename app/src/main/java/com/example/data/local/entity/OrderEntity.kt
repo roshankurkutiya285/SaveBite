@@ -23,5 +23,7 @@ data class OrderEntity(
     val pickupWindow: String,
     val co2SavedKg: Double,
     val reservedAt: Long = System.currentTimeMillis(),
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    val paymentMethod: String = "RAZORPAY_UPI",
+    val razorpayPaymentId: String? = null
 )

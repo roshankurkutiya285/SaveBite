@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -26,7 +28,9 @@ import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Nature
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +66,7 @@ import com.example.data.local.entity.OrderEntity
 import com.example.data.model.OrderStatus
 import com.example.data.model.PackageCategory
 import com.example.ui.theme.SaveBiteAmber
+import com.example.data.local.entity.MerchantEntity
 import com.example.ui.theme.SaveBiteEmerald
 import com.example.util.formatRupees
 
@@ -82,6 +87,10 @@ fun MerchantDashboardScreen(
         dietaryTags: List<String>,
         isDonation: Boolean
     ) -> Unit,
+    allMerchants: List<MerchantEntity> = emptyList(),
+    selectedMerchantId: String = "",
+    onSelectMerchantStore: (String) -> Unit = {},
+    onUpdateStock: (String, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -101,6 +110,51 @@ fun MerchantDashboardScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        // Merchant Outlet Selector Chips (if multiple merchants exist)
+        if (allMerchants.isNotEmpty()) {
+            item {
+                Column {
+                    Text(
+                        text = "Switch Merchant Storefront",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(allMerchants) { m ->
+                            val isSelected = m.id == selectedMerchantId || (selectedMerchantId.isEmpty() && m.businessName == merchantName)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.clickable {
+                                    SoundHapticsManager.playClick(context)
+                                    onSelectMerchantStore(m.id)
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(text = m.coverEmoji, fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = m.businessName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Merchant Header
         item {
             Card(
@@ -388,17 +442,51 @@ fun MerchantDashboardScreen(
                         )
                     }
 
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (pkg.quantityAvailable > 0) Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
-                    ) {
-                        Text(
-                            text = if (pkg.quantityAvailable > 0) "${pkg.quantityAvailable} left" else "Sold Out",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = if (pkg.quantityAvailable > 0) Color(0xFF065F46) else Color(0xFF991B1B),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (pkg.quantityAvailable > 0) Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
+                        ) {
+                            Text(
+                                text = if (pkg.quantityAvailable > 0) "${pkg.quantityAvailable} left" else "Sold Out",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (pkg.quantityAvailable > 0) Color(0xFF065F46) else Color(0xFF991B1B),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clickable {
+                                        SoundHapticsManager.playClick(context)
+                                        onUpdateStock(pkg.id, (pkg.quantityAvailable - 1).coerceAtLeast(0))
+                                    }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(imageVector = Icons.Default.Remove, contentDescription = "Decrease Stock", modifier = Modifier.size(14.dp))
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color = SaveBiteEmerald.copy(alpha = 0.15f),
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clickable {
+                                        SoundHapticsManager.playClick(context)
+                                        onUpdateStock(pkg.id, pkg.quantityAvailable + 1)
+                                    }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(imageVector = Icons.Default.Add, contentDescription = "Increase Stock", tint = SaveBiteEmerald, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }

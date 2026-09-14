@@ -6,6 +6,7 @@ enum class UserRole {
     BAKERY,
     CAFE,
     SUPERMARKET,
+    PICKUP_AGENT,
     NGO,
     ADMIN
 }

@@ -15,20 +15,33 @@ import com.example.data.model.UserRole
 import com.example.data.repository.SaveBiteRepository
 import com.example.ui.theme.AppColorPalette
 import com.example.ui.theme.AppThemeMode
+import com.example.util.EmailOtpManager
+import com.example.util.JwtManager
+import com.example.util.JwtSessionManager
+import com.example.util.OtpDispatchInfo
+import com.example.util.RazorpayPaymentManager
+import com.example.util.RazorpayPaymentOrder
+import com.example.util.RazorpayPaymentResult
+import com.example.util.SoundHapticsManager
 import com.example.util.formatRupees
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 enum class SaveBiteTab {
-    EXPLORE,
+    CUSTOMER,
     PICKUPS,
     MERCHANT_HUB,
+    ADMIN,
     IMPACT
 }
 
@@ -44,17 +57,22 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
 
     private val repository: SaveBiteRepository
 
-    // Current logged-in user profile
-    private val _currentUser = MutableStateFlow(
-        UserEntity(
-            id = "user_customer_elena",
-            email = "aarav.sharma@savebite.in",
-            name = "Aarav Sharma",
-            phone = "+91 98450 23145",
-            role = UserRole.CUSTOMER
-        )
-    )
-    val currentUser: StateFlow<UserEntity> = _currentUser.asStateFlow()
+    // Current logged-in user profile (null means unauthenticated / show Login & Register)
+    private val _currentUser = MutableStateFlow<UserEntity?>(null)
+    val currentUser: StateFlow<UserEntity?> = _currentUser.asStateFlow()
+
+    // JWT Session State
+    private val jwtSessionManager = JwtSessionManager(application)
+    private val _activeJwtToken = MutableStateFlow<String?>(null)
+    val activeJwtToken: StateFlow<String?> = _activeJwtToken.asStateFlow()
+
+    // Email OTP Dispatch State
+    private val _activeOtpDispatch = MutableStateFlow<OtpDispatchInfo?>(null)
+    val activeOtpDispatch: StateFlow<OtpDispatchInfo?> = _activeOtpDispatch.asStateFlow()
+
+    // Razorpay Pending Checkout State
+    private val _pendingRazorpayOrder = MutableStateFlow<RazorpayPaymentOrder?>(null)
+    val pendingRazorpayOrder: StateFlow<RazorpayPaymentOrder?> = _pendingRazorpayOrder.asStateFlow()
 
     // Celebration modal event
     private val _celebrationEvent = MutableStateFlow<CelebrationEvent?>(null)
@@ -68,7 +86,7 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
     // Navigation & UI selection state
-    private val _currentTab = MutableStateFlow(SaveBiteTab.EXPLORE)
+    private val _currentTab = MutableStateFlow(SaveBiteTab.CUSTOMER)
     val currentTab: StateFlow<SaveBiteTab> = _currentTab.asStateFlow()
 
     private val _selectedPackage = MutableStateFlow<FoodPackageEntity?>(null)
@@ -83,11 +101,16 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     private val _selectedCategory = MutableStateFlow<PackageCategory?>(null)
     val selectedCategory: StateFlow<PackageCategory?> = _selectedCategory.asStateFlow()
 
+    private val _selectedMerchantStoreId = MutableStateFlow("merchant_artisan_bakery")
+    val selectedMerchantStoreId: StateFlow<String> = _selectedMerchantStoreId.asStateFlow()
+
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
     val allMerchants: StateFlow<List<MerchantEntity>>
     val allPackages: StateFlow<List<FoodPackageEntity>>
+    val allOrders: StateFlow<List<OrderEntity>>
+    val allUsers: StateFlow<List<UserEntity>>
     val customerOrders: StateFlow<List<OrderEntity>>
     val merchantOrders: StateFlow<List<OrderEntity>>
     val favoriteMerchantIds: StateFlow<Set<String>>
@@ -103,21 +126,65 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
             db.seedIfEmpty()
         }
 
+        // Restore active JWT Session if exists and unexpired
+        val savedJwt = jwtSessionManager.getAccessToken()
+        val verifiedPayload = jwtSessionManager.getVerifiedPayload()
+        if (savedJwt != null && verifiedPayload != null) {
+            _activeJwtToken.value = savedJwt
+            val restoredUser = UserEntity(
+                id = verifiedPayload.sub,
+                email = verifiedPayload.email,
+                password = "jwt_authenticated",
+                name = verifiedPayload.name,
+                phone = "+91 98450 23145",
+                role = verifiedPayload.role
+            )
+            _currentUser.value = restoredUser
+            when (restoredUser.role) {
+                UserRole.CUSTOMER -> _currentTab.value = SaveBiteTab.CUSTOMER
+                UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                UserRole.PICKUP_AGENT -> _currentTab.value = SaveBiteTab.PICKUPS
+                UserRole.ADMIN -> _currentTab.value = SaveBiteTab.ADMIN
+                UserRole.NGO -> _currentTab.value = SaveBiteTab.CUSTOMER
+            }
+        }
+
         allMerchants = repository.getAllMerchants()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         allPackages = repository.getAllActivePackages()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        customerOrders = repository.getCustomerOrders("user_customer_elena")
+        allOrders = repository.getAllOrders()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        merchantOrders = repository.getMerchantOrders("merchant_artisan_bakery")
+        allUsers = repository.getAllUsers()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        favoriteMerchantIds = repository.getFavoriteMerchantIds("user_customer_elena")
-            .combine(MutableStateFlow(emptySet<String>())) { list, _ -> list.toSet() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+        @OptIn(ExperimentalCoroutinesApi::class)
+        customerOrders = _currentUser.flatMapLatest { user ->
+            if (user != null) {
+                repository.getCustomerOrders(user.id)
+            } else {
+                flowOf(emptyList())
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        @OptIn(ExperimentalCoroutinesApi::class)
+        merchantOrders = combine(_currentUser, _selectedMerchantStoreId) { user, storeId ->
+            if (storeId.isNotBlank()) storeId else "merchant_artisan_bakery"
+        }.flatMapLatest { storeId ->
+            repository.getMerchantOrders(storeId)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        @OptIn(ExperimentalCoroutinesApi::class)
+        favoriteMerchantIds = _currentUser.flatMapLatest { user ->
+            if (user != null) {
+                repository.getFavoriteMerchantIds(user.id).map { it.toSet() }
+            } else {
+                flowOf(emptySet())
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
         filteredPackages = combine(
             allPackages,
@@ -172,6 +239,11 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun reservePackage(pkg: FoodPackageEntity, quantity: Int = 1) {
+        val user = _currentUser.value
+        if (user == null) {
+            _snackbarMessage.value = "Please sign in or register to reserve food."
+            return
+        }
         viewModelScope.launch {
             val merchant = allMerchants.value.find { it.id == pkg.merchantId }
             if (merchant == null) {
@@ -179,7 +251,7 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
                 return@launch
             }
 
-            val result = repository.reservePackage(_currentUser.value, merchant, pkg, quantity)
+            val result = repository.reservePackage(user, merchant, pkg, quantity)
             result.onSuccess { order ->
                 _snackbarMessage.value = "Reserved! Order ${order.orderNumber} is ready. Pickup PIN: ${order.pickupPin}"
                 _selectedPackage.value = null
@@ -191,9 +263,321 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleFavorite(merchantId: String) {
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
             val isFav = favoriteMerchantIds.value.contains(merchantId)
-            repository.toggleFavorite(_currentUser.value.id, merchantId, isFav)
+            repository.toggleFavorite(user.id, merchantId, isFav)
+        }
+    }
+
+    // --- Authentication & Session Management ---
+    fun login(identifier: String, password: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.loginUser(identifier, password)
+            result.onSuccess { user ->
+                val jwt = JwtManager.generateToken(user)
+                jwtSessionManager.saveToken(jwt)
+                _activeJwtToken.value = jwt.accessToken
+                _currentUser.value = user
+                _snackbarMessage.value = "Welcome back, ${user.name}! (JWT Authenticated)"
+                // Configure default tab according to role
+                when (user.role) {
+                    UserRole.CUSTOMER -> _currentTab.value = SaveBiteTab.CUSTOMER
+                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
+                        _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                        val userStore = allMerchants.value.find { it.userId == user.id }
+                        if (userStore != null) {
+                            _selectedMerchantStoreId.value = userStore.id
+                        }
+                    }
+                    UserRole.PICKUP_AGENT -> _currentTab.value = SaveBiteTab.PICKUPS
+                    UserRole.ADMIN -> _currentTab.value = SaveBiteTab.ADMIN
+                    UserRole.NGO -> _currentTab.value = SaveBiteTab.CUSTOMER
+                }
+                onResult(true, "Logged in successfully with JWT session!")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Authentication failed.")
+            }
+        }
+    }
+
+    fun register(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        role: UserRole,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.registerUser(name, email, phone, password, role)
+            result.onSuccess { user ->
+                val jwt = JwtManager.generateToken(user)
+                jwtSessionManager.saveToken(jwt)
+                _activeJwtToken.value = jwt.accessToken
+                _currentUser.value = user
+                _snackbarMessage.value = "Welcome to SaveBite India, ${user.name}!"
+                when (user.role) {
+                    UserRole.CUSTOMER -> _currentTab.value = SaveBiteTab.CUSTOMER
+                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
+                        _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                        _selectedMerchantStoreId.value = "merchant_${user.id}"
+                    }
+                    UserRole.PICKUP_AGENT -> _currentTab.value = SaveBiteTab.PICKUPS
+                    UserRole.ADMIN -> _currentTab.value = SaveBiteTab.ADMIN
+                    UserRole.NGO -> _currentTab.value = SaveBiteTab.CUSTOMER
+                }
+                onResult(true, "Registered successfully with JWT session!")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Registration failed.")
+            }
+        }
+    }
+
+    fun sendEmailOtp(email: String, onResult: (Boolean, OtpDispatchInfo?, String) -> Unit) {
+        val res = EmailOtpManager.dispatchOtp(email)
+        res.onSuccess { info ->
+            _activeOtpDispatch.value = info
+            _snackbarMessage.value = "📧 OTP sent to $email! (Valid for 5 minutes)"
+            onResult(true, info, "OTP sent successfully")
+        }.onFailure { err ->
+            onResult(false, null, err.message ?: "Failed to generate OTP")
+        }
+    }
+
+    fun verifyEmailOtp(
+        email: String,
+        code: String,
+        role: UserRole = UserRole.CUSTOMER,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = repository.loginWithEmailOtp(email, code, role)
+            res.onSuccess { user ->
+                val jwt = JwtManager.generateToken(user)
+                jwtSessionManager.saveToken(jwt)
+                _activeJwtToken.value = jwt.accessToken
+                _currentUser.value = user
+                _activeOtpDispatch.value = null
+                _snackbarMessage.value = "Welcome, ${user.name}! (Email OTP Verified)"
+                when (user.role) {
+                    UserRole.CUSTOMER -> _currentTab.value = SaveBiteTab.CUSTOMER
+                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
+                        _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                        val store = allMerchants.value.find { it.userId == user.id }
+                        if (store != null) _selectedMerchantStoreId.value = store.id
+                    }
+                    UserRole.PICKUP_AGENT -> _currentTab.value = SaveBiteTab.PICKUPS
+                    UserRole.ADMIN -> _currentTab.value = SaveBiteTab.ADMIN
+                    UserRole.NGO -> _currentTab.value = SaveBiteTab.CUSTOMER
+                }
+                onResult(true, "OTP verified and JWT created")
+            }.onFailure { err ->
+                onResult(false, err.message ?: "Invalid OTP")
+            }
+        }
+    }
+
+    fun quickLogin(role: UserRole) {
+        switchUserRole(role)
+    }
+
+    fun logout() {
+        jwtSessionManager.clearSession()
+        _activeJwtToken.value = null
+        _currentUser.value = null
+        _selectedPackage.value = null
+        _snackbarMessage.value = "Logged out successfully. JWT session cleared."
+    }
+
+    fun switchUserRole(role: UserRole) {
+        val user = when (role) {
+            UserRole.CUSTOMER -> UserEntity(
+                id = "user_customer_elena",
+                email = "aarav.sharma@savebite.in",
+                password = "password123",
+                name = "Aarav Sharma",
+                phone = "+91 98450 23145",
+                role = UserRole.CUSTOMER
+            )
+            UserRole.BAKERY, UserRole.RESTAURANT -> UserEntity(
+                id = "user_merchant_artisan",
+                email = "vikramaditya@bikanersweets.in",
+                password = "password123",
+                name = "Chef Vikramaditya Singh (Bikaner Sweets)",
+                phone = "+91 98110 54321",
+                role = role
+            )
+            UserRole.PICKUP_AGENT -> UserEntity(
+                id = "user_pickup_rajat",
+                email = "rajat.courier@savebite.in",
+                password = "password123",
+                name = "Rajat Verma (Pickup Partner)",
+                phone = "+91 98765 43210",
+                role = UserRole.PICKUP_AGENT
+            )
+            UserRole.NGO -> UserEntity(
+                id = "user_ngo_rescue",
+                email = "ananya@robinhoodarmy.org",
+                password = "password123",
+                name = "Ananya Mukherjee (Robin Hood Army)",
+                phone = "+91 99301 77654",
+                role = UserRole.NGO
+            )
+            UserRole.ADMIN -> UserEntity(
+                id = "user_admin_rajesh",
+                email = "admin@savebite.in",
+                password = "password123",
+                name = "Rajesh Verma (Platform Admin)",
+                phone = "+91 98001 11222",
+                role = UserRole.ADMIN
+            )
+            else -> _currentUser.value?.copy(role = role) ?: UserEntity(
+                id = "user_default_${UUID.randomUUID().toString().take(6)}",
+                email = "user@savebite.in",
+                password = "password123",
+                name = "SaveBite User",
+                phone = "+91 98000 00000",
+                role = role
+            )
+        }
+        _currentUser.value = user
+        val jwt = JwtManager.generateToken(user)
+        jwtSessionManager.saveToken(jwt)
+        _activeJwtToken.value = jwt.accessToken
+
+        when (role) {
+            UserRole.CUSTOMER -> {
+                _currentTab.value = SaveBiteTab.CUSTOMER
+                _snackbarMessage.value = "Switched to Consumer Mode (Aarav Sharma)"
+            }
+            UserRole.BAKERY, UserRole.RESTAURANT -> {
+                _currentTab.value = SaveBiteTab.MERCHANT_HUB
+                _selectedMerchantStoreId.value = "merchant_artisan_bakery"
+                _snackbarMessage.value = "Switched to Merchant Mode (Chef Vikramaditya Singh)"
+            }
+            UserRole.PICKUP_AGENT -> {
+                _currentTab.value = SaveBiteTab.PICKUPS
+                _snackbarMessage.value = "Switched to Pickup & Delivery Partner Mode (Rajat Verma)"
+            }
+            UserRole.NGO -> {
+                _currentTab.value = SaveBiteTab.CUSTOMER
+                _snackbarMessage.value = "Switched to NGO Partner Mode (Robin Hood Army)"
+            }
+            UserRole.ADMIN -> {
+                _currentTab.value = SaveBiteTab.ADMIN
+                _snackbarMessage.value = "Switched to Platform Admin Mode (Rajesh Verma)"
+            }
+            else -> {}
+        }
+    }
+
+    // --- Razorpay Payment Integration ---
+    fun initiateRazorpayCheckout(pkg: FoodPackageEntity, quantity: Int = 1) {
+        val user = _currentUser.value
+        if (user == null) {
+            _snackbarMessage.value = "Please sign in or register to reserve food."
+            return
+        }
+        val merchant = allMerchants.value.find { it.id == pkg.merchantId } ?: allMerchants.value.firstOrNull()
+        if (merchant == null) {
+            _snackbarMessage.value = "Merchant details not available."
+            return
+        }
+
+        if (pkg.discountedPrice <= 0.0) {
+            // Annadaan free donation food package
+            reservePackage(pkg, quantity)
+            return
+        }
+
+        val totalAmount = pkg.discountedPrice * quantity
+        val rzpOrder = RazorpayPaymentManager.createOrder(
+            packageTitle = pkg.title,
+            merchantName = merchant.businessName,
+            quantity = quantity,
+            amountRupees = totalAmount
+        )
+        _pendingRazorpayOrder.value = rzpOrder
+    }
+
+    fun onRazorpayPaymentSuccess(result: RazorpayPaymentResult.Success) {
+        val pending = _pendingRazorpayOrder.value ?: return
+        val pkg = allPackages.value.find { it.title == pending.packageTitle } ?: _selectedPackage.value
+        val merchant = allMerchants.value.find { it.businessName == pending.merchantName } ?: _selectedMerchant.value
+        val user = _currentUser.value ?: allUsers.value.firstOrNull { it.role == UserRole.CUSTOMER }
+
+        if (pkg != null && merchant != null && user != null) {
+            viewModelScope.launch {
+                val reserveRes = repository.reservePackage(
+                    customer = user,
+                    merchant = merchant,
+                    pkg = pkg,
+                    quantity = pending.quantity,
+                    paymentMethod = result.method.displayName,
+                    razorpayPaymentId = result.paymentId
+                )
+                _pendingRazorpayOrder.value = null
+                reserveRes.onSuccess { order ->
+                    _selectedPackage.value = null
+                    _currentTab.value = SaveBiteTab.PICKUPS
+                    SoundHapticsManager.playSuccessChime(getApplication<Application>())
+                    _celebrationEvent.value = CelebrationEvent(
+                        title = "Payment Confirmed via Razorpay!",
+                        subtitle = "Paid ${formatRupees(order.totalPrice)} • Order ${order.orderNumber} confirmed",
+                        iconEmoji = "💳",
+                        statHighlight = "Payment ID: ${result.paymentId}\nPickup PIN: ${order.pickupPin}"
+                    )
+                    _snackbarMessage.value = "Order ${order.orderNumber} booked! Razorpay Payment ID: ${result.paymentId}"
+                }.onFailure { err ->
+                    _snackbarMessage.value = "Order reservation failed: ${err.message}"
+                }
+            }
+        } else {
+            _pendingRazorpayOrder.value = null
+        }
+    }
+
+    fun dismissRazorpayCheckout() {
+        _pendingRazorpayOrder.value = null
+    }
+
+    fun selectMerchantStore(merchantId: String) {
+        _selectedMerchantStoreId.value = merchantId
+    }
+
+    fun updatePackageStock(packageId: String, newQty: Int) {
+        viewModelScope.launch {
+            repository.updatePackageStock(packageId, newQty.coerceAtLeast(0))
+            _snackbarMessage.value = "Inventory updated to $newQty units."
+        }
+    }
+
+    fun togglePackageActive(packageId: String, isActive: Boolean) {
+        viewModelScope.launch {
+            repository.togglePackageActive(packageId, isActive)
+            _snackbarMessage.value = if (isActive) "Package listing activated" else "Package listing paused"
+        }
+    }
+
+    fun updateMerchantVerification(merchantId: String, verified: Boolean) {
+        viewModelScope.launch {
+            repository.updateMerchantVerification(merchantId, verified)
+            _snackbarMessage.value = if (verified) "Merchant verified and approved!" else "Merchant status changed to pending."
+        }
+    }
+
+    fun restockAllPackages() {
+        viewModelScope.launch {
+            repository.restockAllPackages()
+            _snackbarMessage.value = "All active surplus food packages restocked to full capacity."
+        }
+    }
+
+    fun markOrderReadyForPickup(orderId: String) {
+        viewModelScope.launch {
+            repository.updateOrderStatus(orderId, OrderStatus.READY_FOR_PICKUP)
+            _snackbarMessage.value = "Order marked as Ready for Pickup!"
         }
     }
 
@@ -217,14 +601,6 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun triggerCelebration(event: CelebrationEvent) {
-        _celebrationEvent.value = event
-    }
-
-    fun dismissCelebration() {
-        _celebrationEvent.value = null
-    }
-
     fun cancelOrder(orderId: String) {
         viewModelScope.launch {
             val result = repository.cancelOrder(orderId)
@@ -234,6 +610,14 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
                 _snackbarMessage.value = err.message ?: "Failed to cancel reservation."
             }
         }
+    }
+
+    fun triggerCelebration(event: CelebrationEvent) {
+        _celebrationEvent.value = event
+    }
+
+    fun dismissCelebration() {
+        _celebrationEvent.value = null
     }
 
     fun setColorPalette(palette: AppColorPalette) {
@@ -246,42 +630,34 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         _snackbarMessage.value = "Theme mode: ${mode.displayName}"
     }
 
-    fun switchUserRole(role: UserRole) {
-        when (role) {
-            UserRole.CUSTOMER -> {
-                _currentUser.value = UserEntity(
-                    id = "user_customer_elena",
-                    email = "aarav.sharma@savebite.in",
-                    name = "Aarav Sharma",
-                    phone = "+91 98450 23145",
+    fun generateDemoTestOrder() {
+        viewModelScope.launch {
+            val packages = allPackages.value
+            val merchants = allMerchants.value
+            if (packages.isNotEmpty() && merchants.isNotEmpty()) {
+                val pkg = packages.first()
+                val merchant = merchants.firstOrNull { it.id == pkg.merchantId } ?: merchants.first()
+                val user = _currentUser.value ?: allUsers.value.firstOrNull { it.role == UserRole.CUSTOMER } ?: UserEntity(
+                    id = "user_demo_test",
+                    email = "demo.test@savebite.in",
+                    password = "password123",
+                    name = "Demo Customer",
+                    phone = "+91 99999 11111",
                     role = UserRole.CUSTOMER
                 )
-                _snackbarMessage.value = "Switched to Consumer Mode (Aarav Sharma)"
+                val result = repository.reservePackage(user, merchant, pkg, 1)
+                result.onSuccess { order ->
+                    _snackbarMessage.value = "Demo order ${order.orderNumber} created! Ready in Pickups Dashboard."
+                }.onFailure {
+                    _snackbarMessage.value = "Could not generate demo order: ${it.message}"
+                }
             }
-            UserRole.BAKERY, UserRole.RESTAURANT -> {
-                _currentUser.value = UserEntity(
-                    id = "user_merchant_artisan",
-                    email = "vikramaditya@bikanersweets.in",
-                    name = "Chef Vikramaditya Singh (Bikaner Sweets)",
-                    phone = "+91 98110 54321",
-                    role = role
-                )
-                _currentTab.value = SaveBiteTab.MERCHANT_HUB
-                _snackbarMessage.value = "Switched to Merchant Mode (Chef Vikramaditya Singh)"
-            }
-            UserRole.NGO -> {
-                _currentUser.value = UserEntity(
-                    id = "user_ngo_rescue",
-                    email = "ananya@robinhoodarmy.org",
-                    name = "Ananya Mukherjee (Robin Hood Army)",
-                    phone = "+91 99301 77654",
-                    role = UserRole.NGO
-                )
-                _snackbarMessage.value = "Switched to NGO Partner Mode (Robin Hood Army)"
-            }
-            else -> {
-                _currentUser.value = _currentUser.value.copy(role = role)
-            }
+        }
+    }
+
+    fun dispatchEmergencyNgoAlert(title: String, quantity: Int, location: String) {
+        viewModelScope.launch {
+            _snackbarMessage.value = "🚨 Annadaan Emergency Alert sent to Robin Hood Army & Feeding India for $quantity surplus meals at $location!"
         }
     }
 
@@ -299,8 +675,8 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val newPkg = FoodPackageEntity(
                 id = "pkg_${UUID.randomUUID().toString().take(8)}",
-                merchantId = "merchant_artisan_bakery",
-                title = title.ifBlank { "Evening Bakery Rescue Bag" },
+                merchantId = _selectedMerchantStoreId.value,
+                title = title.ifBlank { "Evening Food Rescue Bag" },
                 description = description.ifBlank { "Daily fresh surplus baked goods at over 65% off." },
                 category = category,
                 originalPrice = if (originalPrice > 0) originalPrice else 20.0,
