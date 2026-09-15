@@ -38,23 +38,23 @@ fun buildLightColorScheme(palette: AppColorPalette): ColorScheme {
 fun buildDarkColorScheme(palette: AppColorPalette): ColorScheme {
     return darkColorScheme(
         primary = palette.primaryLight,
-        onPrimary = Color(0xFF071B13),
+        onPrimary = Color(0xFF0F172A),
         primaryContainer = palette.primaryDark,
-        onPrimaryContainer = palette.primaryContainer,
+        onPrimaryContainer = Color(0xFFF1F5F9),
         secondary = palette.secondaryLight,
-        onSecondary = Color(0xFF2E1700),
+        onSecondary = Color(0xFF1E1000),
         secondaryContainer = palette.secondaryDark,
-        onSecondaryContainer = palette.secondaryLight,
+        onSecondaryContainer = Color(0xFFFEF3C7),
         tertiary = palette.secondaryColor,
-        onTertiary = Color.Black,
-        background = palette.canvasDark,
-        surface = palette.surfaceDark,
-        surfaceVariant = palette.surfaceVariantDark,
-        onBackground = Color(0xFFF1F5F2),
-        onSurface = Color(0xFFF1F5F2),
-        onSurfaceVariant = Color(0xFF9CA3AF),
-        outline = palette.borderDark,
-        outlineVariant = palette.borderDark.copy(alpha = 0.5f)
+        onTertiary = Color.White,
+        background = Color(0xFF0F172A),
+        surface = Color(0xFF1E293B),
+        surfaceVariant = Color(0xFF334155),
+        onBackground = Color(0xFFF8FAFC),
+        onSurface = Color(0xFFF8FAFC),
+        onSurfaceVariant = Color(0xFFCBD5E1),
+        outline = Color(0xFF475569),
+        outlineVariant = Color(0xFF64748B)
     )
 }
 
