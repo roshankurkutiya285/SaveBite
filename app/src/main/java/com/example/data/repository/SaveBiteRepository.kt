@@ -6,6 +6,7 @@ import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.data.local.entity.OrderEntity
 import com.example.data.local.entity.UserEntity
+import com.example.data.model.BusinessType
 import com.example.data.model.OrderStatus
 import com.example.data.model.PackageCategory
 import com.example.data.model.UserRole
@@ -214,6 +215,38 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
     fun getAllMerchants(): Flow<List<MerchantEntity>> = db.merchantDao().getAllMerchants()
 
     fun getMerchant(merchantId: String): Flow<MerchantEntity?> = db.merchantDao().getMerchantById(merchantId)
+
+    suspend fun createMerchantStoreProfile(
+        userId: String,
+        businessName: String,
+        businessType: BusinessType,
+        description: String,
+        address: String,
+        pickupInstructions: String,
+        coverEmoji: String
+    ): Result<MerchantEntity> {
+        val merchantId = "merchant_${UUID.randomUUID().toString().take(8)}"
+        val merchant = MerchantEntity(
+            id = merchantId,
+            userId = userId,
+            businessName = businessName.ifBlank { "My Merchant Kitchen" },
+            businessType = businessType,
+            description = description.ifBlank { "Fresh authentic local culinary dishes." },
+            address = address.ifBlank { "Main Market Road, City" },
+            distanceKm = 1.0,
+            latitude = 28.6139,
+            longitude = 77.2090,
+            rating = 5.0,
+            reviewCount = 1,
+            pickupStartTime = "18:00",
+            pickupEndTime = "21:00",
+            pickupInstructions = pickupInstructions.ifBlank { "Present your SaveBite 6-digit PIN at the counter." },
+            coverEmoji = coverEmoji.ifBlank { "🏪" },
+            verified = true
+        )
+        db.merchantDao().insertMerchant(merchant)
+        return Result.success(merchant)
+    }
 
     // --- Packages ---
     fun getAllActivePackages(): Flow<List<FoodPackageEntity>> = db.foodPackageDao().getAllActivePackages()

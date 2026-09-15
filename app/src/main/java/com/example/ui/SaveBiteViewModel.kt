@@ -643,7 +643,7 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     fun markOrderReadyForPickup(orderId: String) {
         viewModelScope.launch {
             repository.updateOrderStatus(orderId, OrderStatus.READY_FOR_PICKUP)
-            _snackbarMessage.value = "Order marked as Ready for Pickup!"
+            _snackbarMessage.value = "Order handed over to Pickup Partner! Delivery agent is en route for doorstep delivery."
         }
     }
 
@@ -746,6 +746,32 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     fun dispatchEmergencyNgoAlert(title: String, quantity: Int, location: String) {
         viewModelScope.launch {
             _snackbarMessage.value = "🚨 Annadaan Emergency Alert sent to Robin Hood Army & Feeding India for $quantity surplus meals at $location!"
+        }
+    }
+
+    fun registerMerchantShop(
+        businessName: String,
+        businessType: BusinessType,
+        description: String,
+        address: String,
+        pickupInstructions: String,
+        coverEmoji: String
+    ) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            val res = repository.createMerchantStoreProfile(
+                userId = user.id,
+                businessName = businessName,
+                businessType = businessType,
+                description = description,
+                address = address,
+                pickupInstructions = pickupInstructions,
+                coverEmoji = coverEmoji
+            )
+            res.onSuccess { store ->
+                _selectedMerchantStoreId.value = store.id
+                _snackbarMessage.value = "Shop '${store.businessName}' registered successfully!"
+            }
         }
     }
 

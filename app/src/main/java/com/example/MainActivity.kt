@@ -526,24 +526,35 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         }
 
                         UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> {
-                            val activeMerchant = allMerchants.firstOrNull { it.id == selectedMerchantStoreId }
-                                ?: allMerchants.firstOrNull { it.userId == user.id }
-                                ?: allMerchants.firstOrNull()
-                            val storePackages = allPackages.filter { it.merchantId == (activeMerchant?.id ?: "merchant_artisan_bakery") }
+                            val userMerchant = allMerchants.firstOrNull { it.userId == user.id }
+                            val storePackages = if (userMerchant != null) {
+                                allPackages.filter { it.merchantId == userMerchant.id }
+                            } else emptyList()
+
+                            val storeOrders = if (userMerchant != null) {
+                                merchantOrders.filter { order ->
+                                    order.merchantName.equals(userMerchant.businessName, ignoreCase = true) ||
+                                    storePackages.any { pkg -> pkg.title == order.packageTitle }
+                                }
+                            } else emptyList()
 
                             MerchantDashboardScreen(
-                                merchantName = activeMerchant?.businessName ?: user.name,
+                                merchantName = userMerchant?.businessName ?: user.name,
+                                userMerchant = userMerchant,
                                 packages = storePackages,
-                                merchantOrders = merchantOrders,
+                                merchantOrders = storeOrders,
+                                onRegisterShop = { businessName, businessType, description, address, pickupInstructions, coverEmoji ->
+                                    viewModel.registerMerchantShop(businessName, businessType, description, address, pickupInstructions, coverEmoji)
+                                },
+                                onHandoverToPartner = { orderId ->
+                                    viewModel.markOrderReadyForPickup(orderId)
+                                },
                                 onRedeemCode = { code ->
                                     viewModel.redeemOrder(code) { _, _ -> }
                                 },
                                 onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl ->
                                     viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl)
                                 },
-                                allMerchants = allMerchants,
-                                selectedMerchantId = selectedMerchantStoreId,
-                                onSelectMerchantStore = { viewModel.selectMerchantStore(it) },
                                 onUpdateStock = { pkgId, newQty -> viewModel.updatePackageStock(pkgId, newQty) }
                             )
                         }

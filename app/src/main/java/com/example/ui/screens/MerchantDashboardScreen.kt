@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Storefront
@@ -57,13 +58,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -89,6 +93,7 @@ import coil.compose.AsyncImage
 import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.data.local.entity.OrderEntity
+import com.example.data.model.BusinessType
 import com.example.data.model.OrderStatus
 import com.example.data.model.PackageCategory
 import com.example.ui.theme.SaveBiteAmber
@@ -96,16 +101,25 @@ import com.example.ui.theme.SaveBiteBadgeGreen
 import com.example.ui.theme.SaveBiteBadgeGreenBg
 import com.example.ui.theme.SaveBiteBadgeRed
 import com.example.ui.theme.SaveBiteEmerald
-import com.example.util.IndianDietaryBadge
 import com.example.util.SoundHapticsManager
 import com.example.util.formatRupees
 
 @Composable
 fun MerchantDashboardScreen(
     merchantName: String,
+    userMerchant: MerchantEntity?,
     packages: List<FoodPackageEntity>,
     merchantOrders: List<OrderEntity>,
-    onRedeemCode: (String) -> Unit,
+    onRegisterShop: (
+        businessName: String,
+        businessType: BusinessType,
+        description: String,
+        address: String,
+        pickupInstructions: String,
+        coverEmoji: String
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    onHandoverToPartner: (orderId: String) -> Unit = {},
+    onRedeemCode: (String) -> Unit = {},
     onCreatePackage: (
         title: String,
         description: String,
@@ -118,15 +132,14 @@ fun MerchantDashboardScreen(
         isDonation: Boolean,
         imageUrl: String
     ) -> Unit,
-    allMerchants: List<MerchantEntity> = emptyList(),
-    selectedMerchantId: String = "",
-    onSelectMerchantStore: (String) -> Unit = {},
     onUpdateStock: (String, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var redeemInput by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showSupportDialog by remember { mutableStateOf(false) }
+    var showNotificationsDialog by remember { mutableStateOf(false) }
 
     val pendingOrders = merchantOrders.filter { it.status == OrderStatus.RESERVED || it.status == OrderStatus.READY_FOR_PICKUP }
     val completedOrders = merchantOrders.filter { it.status == OrderStatus.COMPLETED }
@@ -135,98 +148,53 @@ fun MerchantDashboardScreen(
     val activeBagsAvailable = packages.sumOf { it.quantityAvailable }
     val totalCo2Saved = completedOrders.sumOf { it.co2SavedKg }
 
-    LazyColumn(
+    val navTabs = listOf(
+        Pair("Overview", Icons.Default.Storefront),
+        Pair("Orders (${pendingOrders.size})", Icons.Default.MonetizationOn),
+        Pair("Inventory (${packages.size})", Icons.Default.Inventory2),
+        Pair("Analytics", Icons.Default.Analytics),
+        Pair("Store & Staff", Icons.Default.Settings)
+    )
+
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .testTag("merchant_dashboard_screen"),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .testTag("merchant_dashboard_screen")
     ) {
-        // Merchant Outlet Selector Bar (Uber Merchant / Shopify style)
-        if (allMerchants.isNotEmpty()) {
-            item {
-                Column {
-                    Text(
-                        text = "Storefront Outlet Switcher",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(allMerchants) { m ->
-                            val isSelected = m.id == selectedMerchantId || (selectedMerchantId.isEmpty() && m.businessName == merchantName)
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.surface,
-                                shadowElevation = if (isSelected) 2.dp else 1.dp,
-                                border = BorderStroke(1.dp, if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.outlineVariant),
-                                modifier = Modifier.clickable {
-                                    SoundHapticsManager.playClick(context)
-                                    onSelectMerchantStore(m.id)
-                                }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(text = m.coverEmoji, fontSize = 16.sp)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = m.businessName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Header Card (Store Identity & Verified Merchant Status)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
+        // Top Header Bar
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(SaveBiteEmerald),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Store,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(SaveBiteEmerald),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = userMerchant?.coverEmoji ?: "🏪", fontSize = 22.sp)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = userMerchant?.businessName ?: merchantName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = merchantName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            if (userMerchant?.verified == true) {
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
                                     imageVector = Icons.Default.Verified,
@@ -235,482 +203,630 @@ fun MerchantDashboardScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
-                            Text(
-                                text = "Live Surplus Operations • Merchant Portal",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SaveBiteEmerald,
-                                fontWeight = FontWeight.SemiBold
-                            )
                         }
-                    }
-
-                    Button(
-                        onClick = { showCreateDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        modifier = Modifier.testTag("post_surplus_bag_button")
-                    ) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Add Dish", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-            }
-        }
-
-        // Overview Key Metrics Grid (Shopify / Stripe Style)
-        item {
-            Column {
-                Text(
-                    text = "Today's Business Overview",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    MetricSummaryCard(
-                        title = "Revenue Today",
-                        value = formatRupees(totalRevenue),
-                        subtitle = "Completed sales",
-                        icon = Icons.Default.MonetizationOn,
-                        iconTint = SaveBiteEmerald,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    MetricSummaryCard(
-                        title = "Orders Picked",
-                        value = "$totalRescued",
-                        subtitle = "Bags collected",
-                        icon = Icons.Default.Inventory2,
-                        iconTint = SaveBiteAmber,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    MetricSummaryCard(
-                        title = "CO₂ Avoided",
-                        value = "${"%.1f".format(totalCo2Saved)} kg",
-                        subtitle = "Landfill reduction",
-                        icon = Icons.Default.Nature,
-                        iconTint = SaveBiteBadgeGreen,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-
-        // Weekly Sales & Revenue Analytics Chart (Compose Canvas Chart)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Analytics, contentDescription = null, tint = SaveBiteEmerald, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = "Weekly Revenue & Sales Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
-                        Surface(shape = RoundedCornerShape(8.dp), color = SaveBiteEmerald.copy(alpha = 0.12f)) {
-                            Text("This Week", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = SaveBiteEmerald, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Canvas Bar Chart
-                    val dailyData = listOf(
-                        Pair("Mon", 450.0),
-                        Pair("Tue", 680.0),
-                        Pair("Wed", 890.0),
-                        Pair("Thu", 520.0),
-                        Pair("Fri", 1120.0),
-                        Pair("Sat", 1450.0),
-                        Pair("Sun", 980.0)
-                    )
-                    val maxRevenue = 1500.0
-
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(110.dp)
-                    ) {
-                        val barWidth = size.width / (dailyData.size * 2)
-                        val space = size.width / dailyData.size
-
-                        dailyData.forEachIndexed { i, (day, rev) ->
-                            val barHeight = (rev / maxRevenue * size.height).toFloat()
-                            val x = i * space + (space - barWidth) / 2
-                            val y = size.height - barHeight
-
-                            val color = if (i == 5) Color(0xFFDC2626) else Color(0xFF0D7A53)
-
-                            drawRoundRect(
-                                color = color.copy(alpha = 0.85f),
-                                topLeft = Offset(x, y),
-                                size = Size(barWidth, barHeight),
-                                cornerRadius = CornerRadius(8f, 8f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        dailyData.forEach { (day, _) ->
-                            Text(
-                                text = day,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                modifier = Modifier.weight(1f),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Counter Verification Terminal (PIN & QR Check)
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = null,
-                            tint = SaveBiteEmerald
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Counter Pickup Terminal",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = "Merchant Operations Portal",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SaveBiteEmerald,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Enter customer's 6-digit confirmation PIN (e.g. 849-210) to verify pickup handoff.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = redeemInput,
-                            onValueChange = { redeemInput = it },
-                            placeholder = { Text("e.g. 849-210") },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("pin_verify_input"),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Button(
-                            onClick = {
-                                if (redeemInput.isNotBlank()) {
-                                    SoundHapticsManager.playClick(context)
-                                    onRedeemCode(redeemInput)
-                                    redeemInput = ""
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("verify_pin_button")
-                        ) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = "Verify")
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Handover")
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showNotificationsDialog = true }) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Alerts", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    IconButton(onClick = { showSupportDialog = true }) {
+                        Icon(Icons.Default.Help, contentDescription = "Support", tint = SaveBiteEmerald)
                     }
                 }
             }
         }
 
-        // Pending Customer Collection Queue
-        if (pendingOrders.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Pending Collection Queue (${pendingOrders.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            items(pendingOrders, key = { it.id }) { order ->
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SaveBiteEmerald.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+        // Multi-Tab Navigation Bar (Shopify / Stripe Style)
+        if (userMerchant != null) {
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = SaveBiteEmerald,
+                edgePadding = 16.dp
+            ) {
+                navTabs.forEachIndexed { index, (label, icon) ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = {
+                            SoundHapticsManager.playClick(context)
+                            selectedTab = index
+                        },
+                        text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = SaveBiteEmerald,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = order.customerName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
+                                    text = label,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${order.quantity}x ${order.packageTitle}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "PIN: ${order.pickupPin} • ${order.orderNumber}",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                color = SaveBiteAmber
-                            )
                         }
-
-                        Button(
-                            onClick = {
-                                SoundHapticsManager.playClick(context)
-                                onRedeemCode(order.pickupPin)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text("Complete Handover", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
+                    )
                 }
             }
         }
 
-        // Header: Active Surplus Dishes & Inventory Table
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Inventory & Stock Table (${packages.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Unregistered Store Setup Screen
+            if (userMerchant == null) {
+                item {
+                    RegisterShopCard(
+                        merchantName = merchantName,
+                        onRegisterShop = onRegisterShop
+                    )
+                }
+            } else {
+                when (selectedTab) {
+                    // TAB 0: OVERVIEW
+                    0 -> {
+                        item {
+                            Column {
+                                Text(
+                                    text = "Today's Business Overview",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
 
-                Text(
-                    text = "${activeBagsAvailable} units live",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SaveBiteEmerald,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // Inventory Items Table Cards
-        items(packages, key = { it.id }) { pkg ->
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Dish Image Thumbnail
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        if (pkg.imageUrl.isNotBlank()) {
-                            AsyncImage(
-                                model = pkg.imageUrl,
-                                contentDescription = pkg.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.align(Alignment.Center))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = pkg.title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (pkg.isDonation) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFFFDE68A)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = "FREE NGO",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF78350F),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    MetricSummaryCard(
+                                        title = "Revenue Today",
+                                        value = formatRupees(totalRevenue),
+                                        subtitle = "Completed sales",
+                                        icon = Icons.Default.MonetizationOn,
+                                        iconTint = SaveBiteEmerald,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    MetricSummaryCard(
+                                        title = "Orders Picked",
+                                        value = "$totalRescued",
+                                        subtitle = "Bags collected",
+                                        icon = Icons.Default.Inventory2,
+                                        iconTint = SaveBiteAmber,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    MetricSummaryCard(
+                                        title = "CO₂ Avoided",
+                                        value = "${"%.1f".format(totalCo2Saved)} kg",
+                                        subtitle = "Landfill reduction",
+                                        icon = Icons.Default.Nature,
+                                        iconTint = SaveBiteBadgeGreen,
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "${formatRupees(pkg.discountedPrice)} (Was ${formatRupees(pkg.originalPrice)}) • -${pkg.discountPercent}% OFF",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SaveBiteEmerald,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = pkg.pickupWindow,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Stock Controls (- / + / Toggle)
-                    Column(horizontalAlignment = Alignment.End) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (pkg.quantityAvailable > 0) SaveBiteBadgeGreenBg else SaveBiteBadgeRed.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = if (pkg.quantityAvailable > 0) "${pkg.quantityAvailable} left" else "Sold Out",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (pkg.quantityAvailable > 0) SaveBiteBadgeGreen else SaveBiteBadgeRed,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clickable {
-                                        SoundHapticsManager.playClick(context)
-                                        onUpdateStock(pkg.id, (pkg.quantityAvailable - 1).coerceAtLeast(0))
-                                    }
+                        // Quick Action Buttons
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(imageVector = Icons.Default.Remove, contentDescription = "Decrease Stock", modifier = Modifier.size(14.dp))
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = CircleShape,
-                                color = SaveBiteEmerald.copy(alpha = 0.15f),
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clickable {
-                                        SoundHapticsManager.playClick(context)
-                                        onUpdateStock(pkg.id, pkg.quantityAvailable + 1)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(text = "Manage Inventory", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                        Text(text = "$activeBagsAvailable active bags available for consumers", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
                                     }
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(imageVector = Icons.Default.Add, contentDescription = "Increase Stock", tint = SaveBiteEmerald, modifier = Modifier.size(14.dp))
+
+                                    Button(
+                                        onClick = { showCreateDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Post Dish")
+                                    }
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
 
-        // Store Settings & Employee Access Placeholder Card
-        item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Badge, contentDescription = null, tint = SaveBiteEmerald, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = "Staff & Employee Access (Future-Ready)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
-                        Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Text("Multi-User Roles", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        // Awaiting Handover Queue Preview
+                        if (pendingOrders.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Awaiting Handover Queue (${pendingOrders.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            items(pendingOrders.take(3), key = { it.id }) { order ->
+                                PendingOrderCard(order = order, onHandoverToPartner = onHandoverToPartner)
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Manage kitchen managers, cashiers, and packing staff roles with restricted access permissions.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
+                    // TAB 1: ORDERS & REVENUE
+                    1 -> {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Orders & Fulfillment Queue",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${pendingOrders.size} pending",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = SaveBiteEmerald,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        if (pendingOrders.isEmpty()) {
+                            item {
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .padding(32.dp)
+                                            .fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("🛍️", fontSize = 44.sp)
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text("All Orders Handed Over", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        Text("New customer orders will appear here in real time.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
+                                    }
+                                }
+                            }
+                        } else {
+                            items(pendingOrders, key = { it.id }) { order ->
+                                PendingOrderCard(order = order, onHandoverToPartner = onHandoverToPartner)
+                            }
+                        }
+
+                        if (completedOrders.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Completed Orders Audit Log (${completedOrders.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 12.dp)
+                                )
+                            }
+
+                            items(completedOrders, key = { it.id }) { order ->
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    tint = SaveBiteEmerald,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = order.customerName,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(3.dp))
+                                            Text(
+                                                text = "${order.quantity}x ${order.packageTitle}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "Order #${order.orderNumber}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = formatRupees(order.totalPrice),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = SaveBiteEmerald
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = SaveBiteBadgeGreenBg
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.CheckCircle,
+                                                        contentDescription = null,
+                                                        tint = SaveBiteBadgeGreen,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "COMPLETED",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontSize = 10.sp,
+                                                        color = SaveBiteBadgeGreen,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // TAB 2: INVENTORY & DISHES
+                    2 -> {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Dishes & Stock Inventory (${packages.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Button(
+                                    onClick = { showCreateDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Post New Dish")
+                                }
+                            }
+                        }
+
+                        items(packages, key = { it.id }) { pkg ->
+                            InventoryItemCard(pkg = pkg, onUpdateStock = onUpdateStock)
+                        }
+
+                        // Scheduled Listings Section
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Schedule, contentDescription = null, tint = SaveBiteAmber)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = "Scheduled Evening Listings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Automated daily release scheduled for 7:30 PM closing batch.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // TAB 3: ANALYTICS & REPORTS
+                    3 -> {
+                        // Key Business KPI Cards
+                        item {
+                            Column {
+                                Text(
+                                    text = "Key Performance Indicators (KPIs)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    MetricSummaryCard(
+                                        title = "Avg Order Value",
+                                        value = "₹148",
+                                        subtitle = "+12.4% vs last week",
+                                        icon = Icons.Default.MonetizationOn,
+                                        iconTint = SaveBiteEmerald,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    MetricSummaryCard(
+                                        title = "Repeat Rate",
+                                        value = "72%",
+                                        subtitle = "High customer loyalty",
+                                        icon = Icons.Default.Group,
+                                        iconTint = SaveBiteAmber,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    MetricSummaryCard(
+                                        title = "Fulfillment Rate",
+                                        value = "98.4%",
+                                        subtitle = "0.2% cancellation",
+                                        icon = Icons.Default.CheckCircle,
+                                        iconTint = SaveBiteBadgeGreen,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    MetricSummaryCard(
+                                        title = "Peak Hours",
+                                        value = "7:30 - 8:30 PM",
+                                        subtitle = "68% daily sales",
+                                        icon = Icons.Default.Schedule,
+                                        iconTint = SaveBiteBadgeRed,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Weekly Revenue Trend Chart Card
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Analytics, contentDescription = null, tint = SaveBiteEmerald, modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(text = "Weekly Revenue Trend (₹)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        }
+                                        Surface(shape = RoundedCornerShape(8.dp), color = SaveBiteEmerald.copy(alpha = 0.12f)) {
+                                            Text("Weekly Breakdown", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = SaveBiteEmerald, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    val dailyData = listOf(
+                                        Pair("Mon", 450.0),
+                                        Pair("Tue", 680.0),
+                                        Pair("Wed", 890.0),
+                                        Pair("Thu", 520.0),
+                                        Pair("Fri", 1120.0),
+                                        Pair("Sat", 1450.0),
+                                        Pair("Sun", 980.0)
+                                    )
+                                    val maxRevenue = 1500.0
+
+                                    Canvas(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(130.dp)
+                                    ) {
+                                        val barWidth = size.width / (dailyData.size * 2)
+                                        val space = size.width / dailyData.size
+
+                                        dailyData.forEachIndexed { i, (_, rev) ->
+                                            val barHeight = (rev / maxRevenue * size.height).toFloat()
+                                            val x = i * space + (space - barWidth) / 2
+                                            val y = size.height - barHeight
+
+                                            val color = if (i == 5) Color(0xFFDC2626) else Color(0xFF0D7A53)
+
+                                            drawRoundRect(
+                                                color = color.copy(alpha = 0.85f),
+                                                topLeft = Offset(x, y),
+                                                size = Size(barWidth, barHeight),
+                                                cornerRadius = CornerRadius(8f, 8f)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        dailyData.forEach { (day, _) ->
+                                            Text(
+                                                text = day,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                                modifier = Modifier.weight(1f),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Environmental Impact & Waste Diversion Report Card
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Nature, contentDescription = null, tint = SaveBiteBadgeGreen, modifier = Modifier.size(22.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = "Environmental Waste Saved Report", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(
+                                        text = "By selling surplus food instead of discarding it, your kitchen prevented ${"%.1f".format(totalCo2Saved)} kg of CO₂ greenhouse gas emissions from landfills.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                        lineHeight = 16.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = SaveBiteBadgeGreenBg,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "Verified Carbon Credit Status", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = SaveBiteBadgeGreen)
+                                            Surface(shape = RoundedCornerShape(6.dp), color = Color.White) {
+                                                Text("ACTIVE 🌱", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = SaveBiteBadgeGreen, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // TAB 4: STORE & STAFF SETTINGS
+                    4 -> {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Storefront, contentDescription = null, tint = SaveBiteEmerald)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = "Store Profile Settings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(text = "Shop Name: ${userMerchant.businessName}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text(text = "Category: ${userMerchant.businessType.name}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                                    Text(text = "Address: ${userMerchant.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                                    Text(text = "Pickup Instructions: ${userMerchant.pickupInstructions}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                                }
+                            }
+                        }
+
+                        // Staff Roles Card
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Group, contentDescription = null, tint = SaveBiteEmerald)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = "Employee & Staff Roles (Future Ready)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    listOf(
+                                        Pair("Kitchen Manager", "Full Dish & Inventory Control"),
+                                        Pair("Counter Cashier", "Order Handover & Verification Only"),
+                                        Pair("Packing Staff", "View Order Quantities")
+                                    ).forEach { (role, desc) ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(role, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                Text(desc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                            }
+                                            Surface(shape = RoundedCornerShape(6.dp), color = SaveBiteBadgeGreenBg) {
+                                                Text("ACTIVE", style = MaterialTheme.typography.labelSmall, color = SaveBiteBadgeGreen, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Modal Dialog: Create Surplus Package with Dish Image Picker
+    // Modal Dialogs
     if (showCreateDialog) {
         CreatePackageDialog(
             onDismiss = { showCreateDialog = false },
@@ -719,6 +835,397 @@ fun MerchantDashboardScreen(
                 showCreateDialog = false
             }
         )
+    }
+
+    if (showSupportDialog) {
+        AlertDialog(
+            onDismissRequest = { showSupportDialog = false },
+            title = { Text("Merchant Partner Support") },
+            text = { Text("Call 1800-SAVE-BITE or email merchant-support@savebite.in for 24/7 kitchen assistance.") },
+            confirmButton = { Button(onClick = { showSupportDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald)) { Text("Close") } }
+        )
+    }
+
+    if (showNotificationsDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationsDialog = false },
+            title = { Text("Store Alerts & Operational Notifications") },
+            text = { Text("• 3 new customer orders reserved in last hour.\n• Restock alert: Bikaner Sweets stock running low (2 left).") },
+            confirmButton = { Button(onClick = { showNotificationsDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald)) { Text("Acknowledge") } }
+        )
+    }
+}
+
+@Composable
+private fun PendingOrderCard(
+    order: OrderEntity,
+    onHandoverToPartner: (String) -> Unit
+) {
+    val context = LocalContext.current
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, SaveBiteEmerald.copy(alpha = 0.3f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = SaveBiteEmerald, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = order.customerName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = "${order.quantity}x ${order.packageTitle} • ${formatRupees(order.totalPrice)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Order #${order.orderNumber}", style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = SaveBiteAmber)
+            }
+
+            if (order.status == OrderStatus.RESERVED) {
+                Button(
+                    onClick = {
+                        SoundHapticsManager.playClick(context)
+                        onHandoverToPartner(order.id)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Handover to Partner", style = MaterialTheme.typography.labelSmall)
+                }
+            } else {
+                Surface(shape = RoundedCornerShape(8.dp), color = SaveBiteBadgeGreenBg) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SaveBiteBadgeGreen, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Out for Delivery", style = MaterialTheme.typography.labelSmall, color = SaveBiteBadgeGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InventoryItemCard(
+    pkg: FoodPackageEntity,
+    onUpdateStock: (String, Int) -> Unit
+) {
+    val context = LocalContext.current
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                if (pkg.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = pkg.imageUrl,
+                        contentDescription = pkg.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.align(Alignment.Center))
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = pkg.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (pkg.isDonation) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFDE68A)) {
+                            Text("FREE NGO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFF78350F), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${formatRupees(pkg.discountedPrice)} (Was ${formatRupees(pkg.originalPrice)}) • -${pkg.discountPercent}% OFF",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SaveBiteEmerald,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = pkg.pickupWindow,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(horizontalAlignment = Alignment.End) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (pkg.quantityAvailable > 0) SaveBiteBadgeGreenBg else SaveBiteBadgeRed.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = if (pkg.quantityAvailable > 0) "${pkg.quantityAvailable} left" else "Sold Out",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (pkg.quantityAvailable > 0) SaveBiteBadgeGreen else SaveBiteBadgeRed,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable {
+                                SoundHapticsManager.playClick(context)
+                                onUpdateStock(pkg.id, (pkg.quantityAvailable - 1).coerceAtLeast(0))
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = Icons.Default.Remove, contentDescription = "Decrease Stock", modifier = Modifier.size(14.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = SaveBiteEmerald.copy(alpha = 0.15f),
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable {
+                                SoundHapticsManager.playClick(context)
+                                onUpdateStock(pkg.id, pkg.quantityAvailable + 1)
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = "Increase Stock", tint = SaveBiteEmerald, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RegisterShopCard(
+    merchantName: String,
+    onRegisterShop: (
+        businessName: String,
+        businessType: BusinessType,
+        description: String,
+        address: String,
+        pickupInstructions: String,
+        coverEmoji: String
+    ) -> Unit
+) {
+    val context = LocalContext.current
+    var shopName by remember { mutableStateOf(merchantName.ifBlank { "Sharma Ji Ki Rasoi" }) }
+    var selectedType by remember { mutableStateOf(BusinessType.RESTAURANT) }
+    var description by remember { mutableStateOf("Fresh daily North Indian thalis, paneer curries, and tandoori rotis.") }
+    var address by remember { mutableStateOf("Shop 14, Main Market, Lajpat Nagar, New Delhi") }
+    var pickupInstructions by remember { mutableStateOf("Show your 6-digit SaveBite PIN at the parcel counter.") }
+    var selectedEmoji by remember { mutableStateOf("🍛") }
+
+    val emojis = listOf("🍛", "🥐", "☕", "🪔", "🥑", "🥘", "🍕", "🍔")
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("card_register_shop")
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(SaveBiteEmerald.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = SaveBiteEmerald,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Register Your Shop / Restaurant",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "Set up your storefront profile to start listing surplus dishes",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = shopName,
+                onValueChange = { shopName = it },
+                label = { Text("Shop / Restaurant Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Business Category",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(BusinessType.entries.toTypedArray()) { type ->
+                    val isSelected = selectedType == type
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) SaveBiteEmerald else MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.clickable { selectedType = type }
+                    ) {
+                        Text(
+                            text = type.name.lowercase().replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description & Specialties") },
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = address,
+                onValueChange = { address = it },
+                label = { Text("Store Address") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = pickupInstructions,
+                onValueChange = { pickupInstructions = it },
+                label = { Text("Pickup Instructions for Customers") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Select Cover Icon Emoji",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                emojis.forEach { emoji ->
+                    val isSelected = selectedEmoji == emoji
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isSelected) SaveBiteEmerald.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                        border = if (isSelected) BorderStroke(1.5.dp, SaveBiteEmerald) else null,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clickable { selectedEmoji = emoji }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = emoji, fontSize = 20.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (shopName.isNotBlank()) {
+                        SoundHapticsManager.playClick(context)
+                        onRegisterShop(
+                            shopName,
+                            selectedType,
+                            description,
+                            address,
+                            pickupInstructions,
+                            selectedEmoji
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SaveBiteEmerald),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Icon(imageVector = Icons.Default.Check, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Register Shop & Start Adding Dishes", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
