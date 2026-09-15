@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +91,7 @@ fun CustomerHomeScreen(
     favoriteIds: Set<String>,
     onToggleFavorite: (String) -> Unit,
     onPackageClick: (FoodPackageEntity) -> Unit,
+    onApplyWelcomeBenefit: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var viewMode by remember { mutableStateOf(ExploreViewMode.LIST) }
@@ -127,14 +129,17 @@ fun CustomerHomeScreen(
         list
     }
 
+    val isDark = isSystemInDarkTheme()
+    val headerBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) else Color(0xFFFFF3EE)
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .testTag("customer_home_screen")
     ) {
-        // Top Section Container with Soft Warm Swiggy/Zomato Tint
+        // Top Section Container
         Surface(
-            color = Color(0xFFFFF3EE),
+            color = headerBg,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(bottom = 8.dp)) {
@@ -236,7 +241,7 @@ fun CustomerHomeScreen(
                     }
                 }
 
-                // Top Search Bar + VEG MODE Toggle Row (Exact Screenshot Style)
+                // Top Search Bar + VEG MODE Toggle Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -244,11 +249,12 @@ fun CustomerHomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // White Search Box (Left)
+                    // Theme-Adaptive Search Box (Left)
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.surface,
                         shadowElevation = 2.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
@@ -266,6 +272,7 @@ fun CustomerHomeScreen(
                                 value = searchQuery,
                                 onValueChange = onSearchChange,
                                 singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                                 modifier = Modifier.weight(1f),
                                 decorationBox = { innerTextField ->
                                     if (searchQuery.isEmpty()) {
@@ -348,6 +355,7 @@ fun CustomerHomeScreen(
                     WelcomeBenefitsBannerCard(
                         onApplyWelcomeBenefit = {
                             maxBudgetFilter = 200.0
+                            onApplyWelcomeBenefit()
                         }
                     )
                 }
@@ -409,7 +417,7 @@ fun CustomerHomeScreen(
                             }
                         }
                     }
-                }
+                   }
 
                 // 3. Swiggy Pill Filters Row (Filters ▼, Under ₹200, Schedule ▼, Pure Veg)
                 item {
@@ -420,9 +428,9 @@ fun CustomerHomeScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.surface,
                                 shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, Color.LightGray),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier.clickable {
                                     showOnlyFavorites = false
                                     maxBudgetFilter = null
@@ -435,10 +443,10 @@ fun CustomerHomeScreen(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Tune, contentDescription = "Filters", modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.Tune, contentDescription = "Filters", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Filters", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Text("Filters", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(14.dp))
                                 }
                             }
                         }
@@ -446,9 +454,9 @@ fun CustomerHomeScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = if (maxBudgetFilter != null) SaveBiteEmerald else Color.White,
+                                color = if (maxBudgetFilter != null) SaveBiteEmerald else MaterialTheme.colorScheme.surface,
                                 shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, if (maxBudgetFilter != null) SaveBiteEmerald else Color.LightGray),
+                                border = BorderStroke(1.dp, if (maxBudgetFilter != null) SaveBiteEmerald else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier.clickable {
                                     maxBudgetFilter = if (maxBudgetFilter == null) 200.0 else null
                                 }
@@ -466,16 +474,16 @@ fun CustomerHomeScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.surface,
                                 shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, Color.LightGray)
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Schedule", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Text("Schedule", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(14.dp))
                                 }
                             }
                         }
@@ -483,9 +491,9 @@ fun CustomerHomeScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = if (isVegModeOn) Color(0xFF16A34A) else Color.White,
+                                color = if (isVegModeOn) Color(0xFF16A34A) else MaterialTheme.colorScheme.surface,
                                 shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, if (isVegModeOn) Color(0xFF16A34A) else Color.LightGray),
+                                border = BorderStroke(1.dp, if (isVegModeOn) Color(0xFF16A34A) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier.clickable {
                                     isVegModeOn = !isVegModeOn
                                 }
@@ -503,9 +511,9 @@ fun CustomerHomeScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(18.dp),
-                                color = if (showOnlyFavorites) SaveBiteBadgeRed else Color.White,
+                                color = if (showOnlyFavorites) SaveBiteBadgeRed else MaterialTheme.colorScheme.surface,
                                 shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, if (showOnlyFavorites) SaveBiteBadgeRed else Color.LightGray),
+                                border = BorderStroke(1.dp, if (showOnlyFavorites) SaveBiteBadgeRed else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                 modifier = Modifier.clickable {
                                     showOnlyFavorites = !showOnlyFavorites
                                 }
