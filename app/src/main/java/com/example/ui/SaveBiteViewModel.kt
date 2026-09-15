@@ -264,10 +264,11 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleFavorite(merchantId: String) {
-        val user = _currentUser.value ?: return
+        val user = _currentUser.value ?: allUsers.value.firstOrNull { it.role == UserRole.CUSTOMER } ?: return
         viewModelScope.launch {
             val isFav = favoriteMerchantIds.value.contains(merchantId)
             repository.toggleFavorite(user.id, merchantId, isFav)
+            _snackbarMessage.value = if (!isFav) "Added to your Liked deals!" else "Removed from Liked deals."
         }
     }
 

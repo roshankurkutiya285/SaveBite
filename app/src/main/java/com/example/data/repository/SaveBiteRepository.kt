@@ -243,7 +243,8 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         pkg: FoodPackageEntity,
         quantity: Int = 1,
         paymentMethod: String = "RAZORPAY_UPI",
-        razorpayPaymentId: String? = null
+        razorpayPaymentId: String? = null,
+        promoCode: String? = null
     ): Result<OrderEntity> {
         if (pkg.quantityAvailable < quantity) {
             return Result.failure(IllegalStateException("Package is sold out or insufficient quantity available."))
@@ -254,6 +255,14 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         if (updated <= 0) {
             return Result.failure(IllegalStateException("Could not lock stock for this reservation."))
         }
+
+        val baseTotal = pkg.discountedPrice * quantity
+        val promoDiscount = if (!promoCode.isNullOrEmpty() && (promoCode.equals("WELCOME100", ignoreCase = true) || promoCode.equals("FIRST3", ignoreCase = true))) {
+            100.0.coerceAtMost(baseTotal)
+        } else 0.0
+
+        val finalTotal = (baseTotal - promoDiscount).coerceAtLeast(0.0)
+        val totalSavings = ((pkg.originalPrice - pkg.discountedPrice) * quantity) + promoDiscount
 
         val randomPinPart1 = Random.nextInt(100, 999)
         val randomPinPart2 = Random.nextInt(100, 999)
@@ -273,8 +282,8 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
             packageId = pkg.id,
             packageTitle = pkg.title,
             quantity = quantity,
-            totalPrice = pkg.discountedPrice * quantity,
-            totalSavings = (pkg.originalPrice - pkg.discountedPrice) * quantity,
+            totalPrice = finalTotal,
+            totalSavings = totalSavings,
             pickupPin = pickupPin,
             qrPayload = qrPayload,
             status = OrderStatus.RESERVED,
@@ -326,11 +335,14 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
 
     suspend fun submitOrderFeedback(orderId: String, rating: Int, reviewText: String, reviewTags: String): Result<Boolean> {
         val updated = db.orderDao().updateOrderFeedback(orderId, rating, reviewText, reviewTags)
-        return if (updated > 0) {
-            Result.success(true)
-        } else {
-            Result.failure(IllegalArgumentException("Order not found or feedback update failed."))
+        if (updated > 0) {
+            val order = db.orderDao().getOrderDirect(orderId)
+            if (order != null) {
+                db.merchantDao().updateMerchantRating(order.merchantId, rating.toDouble())
+            }
+            return Result.success(true)
         }
+        return Result.failure(IllegalArgumentException("Order not found or feedback update failed."))
     }
 
     fun getAllOrders(): Flow<List<OrderEntity>> = db.orderDao().getAllOrders()

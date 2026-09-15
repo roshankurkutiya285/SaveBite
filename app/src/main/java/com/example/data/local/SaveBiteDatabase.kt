@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,7 +60,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_enterprise_db_v8"
+                    "savebite_enterprise_db_v9"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())

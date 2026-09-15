@@ -34,4 +34,7 @@ interface MerchantDao {
 
     @Query("UPDATE merchants SET verified = :verified WHERE id = :merchantId")
     suspend fun updateMerchantVerification(merchantId: String, verified: Boolean): Int
+
+    @Query("UPDATE merchants SET rating = :newRating, reviewCount = reviewCount + 1 WHERE id = :merchantId")
+    suspend fun updateMerchantRating(merchantId: String, newRating: Double): Int
 }
