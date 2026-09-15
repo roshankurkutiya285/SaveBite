@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,7 +60,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_enterprise_db_v6"
+                    "savebite_enterprise_db_v8"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
@@ -266,7 +266,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
             )
             db.merchantDao().insertMerchants(merchants)
 
-            // Seed Indian Food Packages (Rupee Pricing)
+            // Seed Indian Food Packages (Rupee Pricing & High-Res Food Images)
             val packages = listOf(
                 FoodPackageEntity(
                     id = "pkg_artisan_sourdough_box",
@@ -280,7 +280,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 10,
                     pickupWindow = "Today 7:00 PM - 8:30 PM",
                     dietaryTags = listOf("Pure Veg", "Mithai Special", "Jain Friendly"),
-                    co2SavedKg = 3.2
+                    co2SavedKg = 3.2,
+                    imageUrl = "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_bistro_dinner_box",
@@ -294,7 +295,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 8,
                     pickupWindow = "Today 6:00 PM - 7:30 PM",
                     dietaryTags = listOf("Pure Veg", "100% Shakahari", "Fresh Morning Batch"),
-                    co2SavedKg = 2.6
+                    co2SavedKg = 2.6,
+                    imageUrl = "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_sushi_omakase_box",
@@ -308,7 +310,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 8,
                     pickupWindow = "Tonight 9:00 PM - 10:15 PM",
                     dietaryTags = listOf("North Indian", "High-Protein", "Freshly Cooked"),
-                    co2SavedKg = 4.5
+                    co2SavedKg = 4.5,
+                    imageUrl = "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_hyderabadi_biryani_pot",
@@ -322,7 +325,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 6,
                     pickupWindow = "Tonight 9:30 PM - 10:45 PM",
                     dietaryTags = listOf("Halal", "Chef Special", "Dum Cooked"),
-                    co2SavedKg = 4.0
+                    co2SavedKg = 4.0,
+                    imageUrl = "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_nordic_fika_bag",
@@ -336,7 +340,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 6,
                     pickupWindow = "Today 5:30 PM - 6:45 PM",
                     dietaryTags = listOf("Eggless", "Pure Veg", "Chai Time Classic"),
-                    co2SavedKg = 2.1
+                    co2SavedKg = 2.1,
+                    imageUrl = "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_organic_produce_crate",
@@ -350,7 +355,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 8,
                     pickupWindow = "Today 6:00 PM - 7:30 PM",
                     dietaryTags = listOf("100% Organic", "Pure Veg", "Direct from Farmers"),
-                    co2SavedKg = 5.8
+                    co2SavedKg = 5.8,
+                    imageUrl = "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_annadaan_zero_hunger",
@@ -365,7 +371,8 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     initialQuantity = 10,
                     pickupWindow = "Tonight 8:00 PM - 9:30 PM",
                     dietaryTags = listOf("Pure Veg", "Community Annadaan", "Zero Waste"),
-                    co2SavedKg = 3.5
+                    co2SavedKg = 3.5,
+                    imageUrl = "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=800&q=80"
                 )
             )
             db.foodPackageDao().insertPackages(packages)

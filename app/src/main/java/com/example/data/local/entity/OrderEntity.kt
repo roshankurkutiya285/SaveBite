@@ -34,5 +34,8 @@ data class OrderEntity(
     val reservedAt: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
     val paymentMethod: String = "RAZORPAY_UPI",
-    val razorpayPaymentId: String? = null
+    val razorpayPaymentId: String? = null,
+    val rating: Int? = null,
+    val reviewText: String? = null,
+    val reviewTags: String? = null
 )

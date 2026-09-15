@@ -678,6 +678,17 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun submitOrderFeedback(orderId: String, rating: Int, reviewText: String, reviewTags: String) {
+        viewModelScope.launch {
+            val result = repository.submitOrderFeedback(orderId, rating, reviewText, reviewTags)
+            result.onSuccess {
+                _snackbarMessage.value = "Thank you! Your $rating★ review has been recorded."
+            }.onFailure { err ->
+                _snackbarMessage.value = err.message ?: "Failed to save feedback."
+            }
+        }
+    }
+
     fun triggerCelebration(event: CelebrationEvent) {
         _celebrationEvent.value = event
     }

@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Navigation
@@ -264,7 +265,7 @@ fun InteractiveSurplusMap(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "$${"%.2f".format(pkg.discountedPrice)}",
+                                text = formatRupees(pkg.discountedPrice),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (isSelected) Color.White else SaveBiteEmerald
@@ -334,7 +335,7 @@ fun InteractiveSurplusMap(
                 enter = slideInVertically { it } + fadeIn(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 28.dp)
             ) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
@@ -345,43 +346,58 @@ fun InteractiveSurplusMap(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = merchant.coverEmoji, fontSize = 24.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = merchant.coverEmoji, fontSize = 24.sp)
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IndianDietaryBadge(isVeg = isVeg)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = merchant.businessName,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = SaveBiteAmber,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = "${merchant.rating} (${merchant.reviewCount}) • ${merchant.distanceKm} km away",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IndianDietaryBadge(isVeg = isVeg)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = merchant.businessName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = SaveBiteAmber,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        text = "${merchant.rating} (${merchant.reviewCount}) • ${merchant.distanceKm} km away",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                }
+
+                            IconButton(
+                                onClick = { selectedEntry = null },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Dismiss Preview",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
 

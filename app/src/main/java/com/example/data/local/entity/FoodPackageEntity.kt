@@ -25,6 +25,7 @@ data class FoodPackageEntity(
     val pickupWindow: String, // e.g. "Today 8:00 PM - 9:00 PM"
     val dietaryTags: List<String>, // e.g. ["Vegetarian", "Nut-Free"]
     val co2SavedKg: Double, // e.g. 2.5 kg
+    val imageUrl: String = "",
     val isDonation: Boolean = false,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()

@@ -407,6 +407,10 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                     ProfileScreen(
                         user = user,
                         activeJwtToken = activeJwtToken,
+                        currentColorPalette = colorPalette,
+                        currentThemeMode = themeMode,
+                        onSelectColorPalette = { viewModel.setColorPalette(it) },
+                        onSelectThemeMode = { viewModel.setThemeMode(it) },
                         onBack = {
                             viewModel.selectTab(
                                 when (user.role) {
@@ -476,6 +480,9 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                             },
                                             onCancelOrder = { orderId ->
                                                 viewModel.cancelOrder(orderId)
+                                            },
+                                            onSubmitFeedback = { orderId, rating, reviewText, reviewTags ->
+                                                viewModel.submitOrderFeedback(orderId, rating, reviewText, reviewTags)
                                             },
                                             onExploreClick = { viewModel.selectTab(SaveBiteTab.CUSTOMER) }
                                         )

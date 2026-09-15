@@ -324,6 +324,15 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         return Result.success(Pair(order.copy(status = OrderStatus.CANCELLED), refund))
     }
 
+    suspend fun submitOrderFeedback(orderId: String, rating: Int, reviewText: String, reviewTags: String): Result<Boolean> {
+        val updated = db.orderDao().updateOrderFeedback(orderId, rating, reviewText, reviewTags)
+        return if (updated > 0) {
+            Result.success(true)
+        } else {
+            Result.failure(IllegalArgumentException("Order not found or feedback update failed."))
+        }
+    }
+
     fun getAllOrders(): Flow<List<OrderEntity>> = db.orderDao().getAllOrders()
 
     fun getAllUsers(): Flow<List<UserEntity>> = db.userDao().getAllUsers()

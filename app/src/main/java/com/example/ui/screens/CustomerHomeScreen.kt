@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,13 +50,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.local.entity.FoodPackageEntity
 import com.example.data.local.entity.MerchantEntity
 import com.example.data.model.PackageCategory
@@ -87,12 +91,19 @@ fun CustomerHomeScreen(
 ) {
     var viewMode by remember { mutableStateOf(ExploreViewMode.LIST) }
     var selectedDietaryTag by remember { mutableStateOf<String?>(null) }
+    var showOnlyFavorites by remember { mutableStateOf(false) }
 
-    val filteredPackages = remember(packages, selectedDietaryTag) {
-        if (selectedDietaryTag == null) packages
-        else packages.filter { (pkg, _) ->
-            pkg.dietaryTags.any { it.contains(selectedDietaryTag!!, ignoreCase = true) }
+    val filteredPackages = remember(packages, selectedDietaryTag, showOnlyFavorites, favoriteIds) {
+        var list = packages
+        if (showOnlyFavorites) {
+            list = list.filter { favoriteIds.contains(it.second.id) }
         }
+        if (selectedDietaryTag != null) {
+            list = list.filter { (pkg, _) ->
+                pkg.dietaryTags.any { it.contains(selectedDietaryTag!!, ignoreCase = true) }
+            }
+        }
+        list
     }
 
     Column(
@@ -130,41 +141,80 @@ fun CustomerHomeScreen(
                 }
             }
 
-            // View Toggle (List vs Map)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.padding(2.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(modifier = Modifier.padding(2.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (viewMode == ExploreViewMode.LIST) SaveBiteEmerald else Color.Transparent,
-                        modifier = Modifier
-                            .clickable { viewMode = ExploreViewMode.LIST }
-                            .testTag("toggle_list_view")
+                // Header Liked Items Pill Button
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (showOnlyFavorites) SaveBiteBadgeRed else SaveBiteBadgeRed.copy(alpha = 0.12f),
+                    modifier = Modifier
+                        .clickable {
+                            showOnlyFavorites = !showOnlyFavorites
+                            if (showOnlyFavorites) {
+                                onCategorySelect(null)
+                                selectedDietaryTag = null
+                            }
+                        }
+                        .testTag("btn_header_favorites")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FormatListBulleted,
-                            contentDescription = "List View",
-                            tint = if (viewMode == ExploreViewMode.LIST) Color.White else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).size(18.dp)
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Liked Items",
+                            tint = if (showOnlyFavorites) Color.White else SaveBiteBadgeRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Liked (${favoriteIds.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (showOnlyFavorites) Color.White else SaveBiteBadgeRed
                         )
                     }
+                }
 
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (viewMode == ExploreViewMode.MAP) SaveBiteEmerald else Color.Transparent,
-                        modifier = Modifier
-                            .clickable { viewMode = ExploreViewMode.MAP }
-                            .testTag("toggle_map_view")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Map,
-                            contentDescription = "Map View",
-                            tint = if (viewMode == ExploreViewMode.MAP) Color.White else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).size(18.dp)
-                        )
+                // View Toggle (List vs Map)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.padding(2.dp)
+                ) {
+                    Row(modifier = Modifier.padding(2.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (viewMode == ExploreViewMode.LIST) SaveBiteEmerald else Color.Transparent,
+                            modifier = Modifier
+                                .clickable { viewMode = ExploreViewMode.LIST }
+                                .testTag("toggle_list_view")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FormatListBulleted,
+                                contentDescription = "List View",
+                                tint = if (viewMode == ExploreViewMode.LIST) Color.White else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).size(18.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (viewMode == ExploreViewMode.MAP) SaveBiteEmerald else Color.Transparent,
+                            modifier = Modifier
+                                .clickable { viewMode = ExploreViewMode.MAP }
+                                .testTag("toggle_map_view")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Map,
+                                contentDescription = "Map View",
+                                tint = if (viewMode == ExploreViewMode.MAP) Color.White else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -203,8 +253,9 @@ fun CustomerHomeScreen(
         ) {
             item {
                 FilterChip(
-                    selected = selectedCategory == null && selectedDietaryTag == null,
+                    selected = !showOnlyFavorites && selectedCategory == null && selectedDietaryTag == null,
                     onClick = {
+                        showOnlyFavorites = false
                         onCategorySelect(null)
                         selectedDietaryTag = null
                     },
@@ -214,6 +265,25 @@ fun CustomerHomeScreen(
                         selectedLabelColor = Color.White
                     ),
                     modifier = Modifier.testTag("filter_all")
+                )
+            }
+
+            item {
+                FilterChip(
+                    selected = showOnlyFavorites,
+                    onClick = {
+                        showOnlyFavorites = !showOnlyFavorites
+                        if (showOnlyFavorites) {
+                            onCategorySelect(null)
+                            selectedDietaryTag = null
+                        }
+                    },
+                    label = { Text("❤️ Liked Items (${favoriteIds.size})") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = SaveBiteBadgeRed,
+                        selectedLabelColor = Color.White
+                    ),
+                    modifier = Modifier.testTag("filter_favorites")
                 )
             }
 
@@ -265,6 +335,17 @@ fun CustomerHomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 96.dp)
             ) {
+                // Food Donation Advertisement Banner
+                item {
+                    FoodDonationBannerCard(
+                        onExploreDonations = {
+                            showOnlyFavorites = false
+                            selectedDietaryTag = null
+                            onCategorySelect(PackageCategory.VEGAN)
+                        }
+                    )
+                }
+
                 // Header: Offers Count
                 item {
                     Row(
@@ -355,31 +436,142 @@ fun SurplusPackageCard(
             .testTag("package_card_${pkg.id}"),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             val isVeg = !pkg.dietaryTags.any { it.contains("Non", ignoreCase = true) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+
+            // Food Image Header with Overlay Badges
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = merchant.coverEmoji,
-                        fontSize = 24.sp
+                if (pkg.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = pkg.imageUrl,
+                        contentDescription = pkg.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = merchant.coverEmoji, fontSize = 48.sp)
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                // Gradient Overlay for Text Readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.3f), Color.Transparent, Color.Black.copy(alpha = 0.5f))
+                            )
+                        )
+                )
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // Top-Left Badge: Discount Pill or Free NGO Tag
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                ) {
+                    if (pkg.isDonation) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFDE68A)
+                        ) {
+                            Text(
+                                text = "FREE NGO MEAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF78350F),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SaveBiteEmerald
+                        ) {
+                            Text(
+                                text = "-${pkg.discountPercent}% OFF",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Top-Right Badge: Favorite Heart Button
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                ) {
+                    IconButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.45f))
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) SaveBiteBadgeRed else Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Bottom-Left Overlay: Urgency Indicator
+                if (pkg.quantityAvailable <= 3 && !pkg.isDonation) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SaveBiteBadgeRed
+                        ) {
+                            Text(
+                                text = "🔥 Only ${pkg.quantityAvailable} left",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Card Body Details
+            Column(modifier = Modifier.padding(14.dp)) {
+                // Merchant Store Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = merchant.coverEmoji, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
                         IndianDietaryBadge(isVeg = isVeg)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -389,22 +581,8 @@ fun SurplusPackageCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (pkg.isDonation) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFFFDE68A)
-                            ) {
-                                Text(
-                                    text = "FREE NGO",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF78350F),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
                     }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Star,
@@ -412,11 +590,11 @@ fun SurplusPackageCard(
                             tint = SaveBiteAmber,
                             modifier = Modifier.size(14.dp)
                         )
-                        Spacer(modifier = Modifier.width(3.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = "${merchant.rating} (${merchant.reviewCount})",
+                            text = merchant.rating.toString(),
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = " • ${merchant.distanceKm} km",
@@ -426,145 +604,176 @@ fun SurplusPackageCard(
                     }
                 }
 
-                IconButton(
-                    onClick = onToggleFavorite,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorite) SaveBiteBadgeRed else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                }
-            }
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
+                // Title & Description
+                Text(
+                    text = pkg.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Text(
-                text = pkg.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                Spacer(modifier = Modifier.height(2.dp))
 
-            Text(
-                text = pkg.description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+                Text(
+                    text = pkg.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        tint = SaveBiteAmber,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = pkg.pickupWindow,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SaveBiteAmber,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                if (pkg.quantityAvailable <= 3 && !pkg.isDonation) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SaveBiteBadgeRedBg
-                    ) {
-                        Text(
-                            text = "Only ${pkg.quantityAvailable} left",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SaveBiteBadgeRed,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+                // Bottom Meta & Price Row
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Nature,
-                        contentDescription = null,
-                        tint = SaveBiteEmerald,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${pkg.co2SavedKg} kg CO₂ saved",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SaveBiteEmerald,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (pkg.isDonation) {
-                        Text(
-                            text = "Free Donation",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SaveBiteEmerald
-                        )
-                    } else {
-                        Text(
-                            text = formatRupees(pkg.originalPrice),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            textDecoration = TextDecoration.LineThrough
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = formatRupees(pkg.discountedPrice),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SaveBiteEmerald
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = SaveBiteEmerald
-                        ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccessTime,
+                                contentDescription = null,
+                                tint = SaveBiteAmber,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "-${pkg.discountPercent}%",
+                                text = pkg.pickupWindow,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                color = SaveBiteAmber,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SaveBiteEmerald.copy(alpha = 0.1f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Nature,
+                                contentDescription = null,
+                                tint = SaveBiteEmerald,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${pkg.co2SavedKg} kg CO₂ saved",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SaveBiteEmerald,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Pricing
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (pkg.isDonation) {
+                            Text(
+                                text = "FREE MEAL",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = SaveBiteEmerald
+                            )
+                        } else {
+                            Text(
+                                text = formatRupees(pkg.originalPrice),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                textDecoration = TextDecoration.LineThrough
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = formatRupees(pkg.discountedPrice),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = SaveBiteEmerald
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun FoodDonationBannerCard(
+    onExploreDonations: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .clickable(onClick = onExploreDonations)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFD97706)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.VolunteerActivism,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFB45309)) {
+                        Text(
+                            text = "NGO PARTNERSHIP",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Robin Hood Army",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF78350F)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Feed the Needy • Free Surplus Food Rescue",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF78350F)
+                )
+                Text(
+                    text = "Over 1,200+ free surplus meal boxes distributed to local shelters this week across India.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF92400E),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
