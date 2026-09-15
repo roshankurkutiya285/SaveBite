@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -60,7 +60,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_enterprise_db_v9"
+                    "savebite_enterprise_db_v10"
                 )
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
@@ -281,7 +281,7 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     pickupWindow = "Today 7:00 PM - 8:30 PM",
                     dietaryTags = listOf("Pure Veg", "Mithai Special", "Jain Friendly"),
                     co2SavedKg = 3.2,
-                    imageUrl = "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80"
+                    imageUrl = "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80"
                 ),
                 FoodPackageEntity(
                     id = "pkg_bistro_dinner_box",

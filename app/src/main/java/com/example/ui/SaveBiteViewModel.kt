@@ -239,6 +239,16 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         _snackbarMessage.value = null
     }
 
+    fun applyWelcomeBenefitCode() {
+        _celebrationEvent.value = CelebrationEvent(
+            title = "Welcome Benefit Unlocked!",
+            subtitle = "₹100 OFF auto-applied on your checkout for your first 3 surplus orders.",
+            iconEmoji = "🎁",
+            statHighlight = "Promo Code: WELCOME100 • ₹100 Instant Discount"
+        )
+        _snackbarMessage.value = "Welcome Benefit Applied! ₹100 OFF applied to your cart."
+    }
+
     fun reservePackage(pkg: FoodPackageEntity, quantity: Int = 1) {
         val user = _currentUser.value
         if (user == null) {
@@ -748,7 +758,8 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
         quantity: Int,
         pickupWindow: String,
         dietaryTags: List<String>,
-        isDonation: Boolean = false
+        isDonation: Boolean = false,
+        imageUrl: String = ""
     ) {
         viewModelScope.launch {
             val newPkg = FoodPackageEntity(
@@ -757,13 +768,14 @@ class SaveBiteViewModel(application: Application) : AndroidViewModel(application
                 title = title.ifBlank { "Evening Food Rescue Bag" },
                 description = description.ifBlank { "Daily fresh surplus baked goods at over 65% off." },
                 category = category,
-                originalPrice = if (originalPrice > 0) originalPrice else 20.0,
-                discountedPrice = if (isDonation) 0.0 else (if (discountedPrice > 0) discountedPrice else 5.99),
+                originalPrice = if (originalPrice > 0) originalPrice else 200.0,
+                discountedPrice = if (isDonation) 0.0 else (if (discountedPrice > 0) discountedPrice else 89.0),
                 quantityAvailable = if (quantity > 0) quantity else 5,
                 initialQuantity = if (quantity > 0) quantity else 5,
                 pickupWindow = pickupWindow.ifBlank { "Today 7:30 PM - 8:30 PM" },
-                dietaryTags = dietaryTags.ifEmpty { listOf("Vegetarian") },
+                dietaryTags = dietaryTags.ifEmpty { listOf("Pure Veg") },
                 co2SavedKg = 2.5,
+                imageUrl = imageUrl.ifBlank { "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80" },
                 isDonation = isDonation
             )
             repository.createPackage(newPkg)

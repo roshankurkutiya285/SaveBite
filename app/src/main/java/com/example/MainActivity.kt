@@ -469,7 +469,8 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                             onCategorySelect = { viewModel.selectCategory(it) },
                                             favoriteIds = favoriteIds,
                                             onToggleFavorite = { viewModel.toggleFavorite(it) },
-                                            onPackageClick = { viewModel.selectPackage(it) }
+                                            onPackageClick = { viewModel.selectPackage(it) },
+                                            onApplyWelcomeBenefit = { viewModel.applyWelcomeBenefitCode() }
                                         )
                                     }
                                     SaveBiteTab.PICKUPS -> {
@@ -537,8 +538,8 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                 onRedeemCode = { code ->
                                     viewModel.redeemOrder(code) { _, _ -> }
                                 },
-                                onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation ->
-                                    viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation)
+                                onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl ->
+                                    viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl)
                                 },
                                 allMerchants = allMerchants,
                                 selectedMerchantId = selectedMerchantStoreId,
