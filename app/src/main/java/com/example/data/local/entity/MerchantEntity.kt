@@ -1,10 +1,16 @@
 package com.example.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.data.model.BusinessType
 
-@Entity(tableName = "merchants")
+@Entity(
+    tableName = "merchants",
+    indices = [
+        Index(value = ["userId"], unique = true)
+    ]
+)
 data class MerchantEntity(
     @PrimaryKey val id: String,
     val userId: String,

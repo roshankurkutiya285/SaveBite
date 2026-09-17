@@ -8,7 +8,10 @@ enum class UserRole {
     SUPERMARKET,
     PICKUP_AGENT,
     NGO,
-    ADMIN
+    ADMIN;
+
+    val isMerchant: Boolean
+        get() = this == RESTAURANT || this == BAKERY || this == CAFE || this == SUPERMARKET
 }
 
 enum class BusinessType {

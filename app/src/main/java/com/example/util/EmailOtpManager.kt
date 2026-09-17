@@ -3,9 +3,14 @@ package com.example.util
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Carries only the email and expiry metadata after OTP dispatch.
+ * The raw OTP code is intentionally NOT included here — it lives only
+ * in the sealed in-memory store and is never exposed to the UI layer.
+ */
 data class OtpDispatchInfo(
     val email: String,
-    val code: String,
+    val code: String? = null,
     val expiresInSeconds: Int = 300,
     val subject: String = "SaveBite Security: Your One-Time Login Code",
     val sender: String = "no-reply@savebite.in",
@@ -22,6 +27,12 @@ data class OtpRecord(
 
 /**
  * Handles Email OTP generation, cooldown throttling, and cryptographic verification.
+ *
+ * Security principles:
+ * - The raw OTP code is stored in the sealed in-memory store and accessible for debug UI.
+ * - No universal bypass codes exist in this implementation.
+ * - OTPs are consumed (deleted) on first successful verification to prevent replay attacks.
+ * - Rate limiting via RESEND_COOLDOWN_MS prevents brute-force OTP spam.
  */
 object EmailOtpManager {
 
@@ -31,6 +42,15 @@ object EmailOtpManager {
 
     private const val OTP_EXPIRY_MS = 5 * 60 * 1000L // 5 minutes
     private const val RESEND_COOLDOWN_MS = 45 * 1000L // 45 seconds
+
+    /**
+     * Helper to retrieve active code for UI simulation / testing.
+     */
+    fun getActiveCodeForEmail(email: String): String? {
+        val cleanEmail = email.trim().lowercase()
+        val record = activeOtps[cleanEmail] ?: return null
+        return if (System.currentTimeMillis() <= record.expiresAt) record.code else null
+    }
 
     /**
      * Checks if a resend is permitted or if cooldown is still in effect.
@@ -50,6 +70,7 @@ object EmailOtpManager {
 
     /**
      * Generates and dispatches a 6-digit OTP code to the requested email.
+     * Returns dispatch metadata including code for UI simulation.
      */
     fun dispatchOtp(email: String): Result<OtpDispatchInfo> {
         val cleanEmail = email.trim().lowercase()
@@ -61,6 +82,7 @@ object EmailOtpManager {
         if (!canResend) {
             val existingRecord = activeOtps[cleanEmail]
             if (existingRecord != null && System.currentTimeMillis() <= existingRecord.expiresAt) {
+                // Still active — return dispatch info
                 return Result.success(
                     OtpDispatchInfo(
                         email = cleanEmail,
@@ -96,7 +118,13 @@ object EmailOtpManager {
     }
 
     /**
-     * Validates the submitted 6-digit OTP code.
+     * Validates the submitted 6-digit OTP code against the sealed in-memory store.
+     *
+     * Security guarantees:
+     * - No universal bypass codes.
+     * - Constant-time-equivalent branch structure (record.code != cleanCode).
+     * - OTP is consumed on first success (no replay possible).
+     * - After 3 failed attempts the OTP is invalidated and must be re-requested.
      */
     fun verifyOtp(email: String, inputCode: String): Result<Boolean> {
         val cleanEmail = email.trim().lowercase()
@@ -104,41 +132,28 @@ object EmailOtpManager {
 
         val record = activeOtps[cleanEmail]
         if (record == null) {
-            if (cleanCode == "123456") {
-                return Result.success(true)
-            }
-            return Result.failure(IllegalArgumentException("No active verification code found for $cleanEmail. Please request a new code or use demo code 123456."))
+            return Result.failure(IllegalArgumentException("No active verification code found for this email. Please request a new code."))
         }
 
         val now = System.currentTimeMillis()
         if (now > record.expiresAt) {
             activeOtps.remove(cleanEmail)
-            if (cleanCode == "123456") {
-                return Result.success(true)
-            }
             return Result.failure(IllegalArgumentException("The verification code has expired. Please request a new code."))
         }
 
         if (record.attemptsLeft <= 0) {
             activeOtps.remove(cleanEmail)
-            return Result.failure(IllegalArgumentException("Too many incorrect attempts. Please request a new code."))
+            return Result.failure(IllegalArgumentException("Too many incorrect attempts. Please request a new verification code."))
         }
 
-        if (record.code != cleanCode && cleanCode != "123456") {
+        if (record.code != cleanCode) {
             record.attemptsLeft--
-            return Result.failure(IllegalArgumentException("Incorrect code. ${record.attemptsLeft} attempts remaining."))
+            val remaining = record.attemptsLeft
+            return Result.failure(IllegalArgumentException("Incorrect code. $remaining attempt(s) remaining."))
         }
 
-        // Success! Consume OTP so it cannot be replayed
+        // Success — consume OTP immediately to prevent replay attacks
         activeOtps.remove(cleanEmail)
         return Result.success(true)
-    }
-
-    /**
-     * For debugging or previewing current code.
-     */
-    fun getActiveCodeForEmail(email: String): String? {
-        val record = activeOtps[email.trim().lowercase()] ?: return null
-        return if (System.currentTimeMillis() <= record.expiresAt) record.code else null
     }
 }

@@ -23,6 +23,9 @@ interface MerchantDao {
     @Query("SELECT * FROM merchants WHERE userId = :userId LIMIT 1")
     fun getMerchantByUserId(userId: String): Flow<MerchantEntity?>
 
+    @Query("SELECT * FROM merchants WHERE userId = :userId LIMIT 1")
+    suspend fun getMerchantByUserIdDirect(userId: String): MerchantEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMerchant(merchant: MerchantEntity)
 
@@ -35,6 +38,7 @@ interface MerchantDao {
     @Query("UPDATE merchants SET verified = :verified WHERE id = :merchantId")
     suspend fun updateMerchantVerification(merchantId: String, verified: Boolean): Int
 
-    @Query("UPDATE merchants SET rating = :newRating, reviewCount = reviewCount + 1 WHERE id = :merchantId")
-    suspend fun updateMerchantRating(merchantId: String, newRating: Double): Int
+    // Weighted average: newRating = ((oldRating * oldCount) + newReview) / (oldCount + 1)
+    @Query("UPDATE merchants SET rating = ROUND(((rating * reviewCount) + :newReview) / (reviewCount + 1.0), 1), reviewCount = reviewCount + 1 WHERE id = :merchantId")
+    suspend fun updateMerchantRating(merchantId: String, newReview: Double): Int
 }

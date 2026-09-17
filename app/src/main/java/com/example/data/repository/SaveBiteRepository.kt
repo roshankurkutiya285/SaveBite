@@ -40,8 +40,14 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         if (cleanEmail.isBlank() || !cleanEmail.contains("@")) {
             return Result.failure(IllegalArgumentException("Please enter a valid email address."))
         }
-        if (cleanPass.length < 4) {
-            return Result.failure(IllegalArgumentException("Password must be at least 4 characters."))
+        if (cleanPass.length < 8) {
+            return Result.failure(IllegalArgumentException("Password must be at least 8 characters."))
+        }
+
+        // SECURITY: Admin accounts cannot be self-registered.
+        // Admin access is provisioned manually by the platform team only.
+        if (role == UserRole.ADMIN) {
+            return Result.failure(SecurityException("Administrator accounts cannot be created through self-registration."))
         }
 
         val existing = db.userDao().getUserByEmail(cleanEmail)
@@ -156,21 +162,42 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
     }
 
     suspend fun changePassword(userId: String, currentPass: String, newPass: String): Result<Unit> {
-        val user = db.userDao().getUserByEmailOrPhone(userId)
-        val targetUser = user ?: run {
-            val all = db.userDao().getUserCount()
-            if (all == 0) null else null
-        }
+        val cleanCurrent = currentPass.trim()
         val cleanNew = newPass.trim()
-        if (cleanNew.length < 6) {
-            return Result.failure(IllegalArgumentException("New password must be at least 6 characters long."))
+
+        if (cleanCurrent.isBlank()) {
+            return Result.failure(IllegalArgumentException("Please enter your current password."))
         }
+        if (cleanNew.length < 8) {
+            return Result.failure(IllegalArgumentException("New password must be at least 8 characters long."))
+        }
+        if (cleanCurrent == cleanNew) {
+            return Result.failure(IllegalArgumentException("New password must be different from your current password."))
+        }
+
+        // Fetch user directly by ID to verify current password
+        val user = db.userDao().getUserByIdDirect(userId)
+            ?: return Result.failure(IllegalArgumentException("User session not found. Please log in again."))
+
+        // Verify current password against stored PBKDF2 hash — never skip this check
+        val isCurrentValid = com.example.util.PasswordHasher.verifyPassword(cleanCurrent, user.password)
+        if (!isCurrentValid) {
+            return Result.failure(IllegalArgumentException("Current password is incorrect."))
+        }
+
         val hashed = com.example.util.PasswordHasher.hashPassword(cleanNew)
         db.userDao().updatePassword(userId, hashed)
         return Result.success(Unit)
     }
 
     suspend fun deleteAccount(userId: String): Result<Unit> {
+        // Cascade: soft-cancel active orders, remove favorites, deactivate merchant listings, then delete user
+        db.orderDao().cancelActiveOrdersByCustomer(userId)
+        db.favoriteDao().deleteFavoritesByUser(userId)
+        val merchant = db.merchantDao().getMerchantByUserIdDirect(userId)
+        if (merchant != null) {
+            db.foodPackageDao().deactivatePackagesByMerchant(merchant.id)
+        }
         db.userDao().deleteUser(userId)
         return Result.success(Unit)
     }
@@ -331,6 +358,57 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
         return Result.success(order)
     }
 
+    suspend fun claimDonationPackage(
+        ngoUser: UserEntity,
+        merchant: MerchantEntity,
+        pkg: FoodPackageEntity,
+        quantity: Int = 1
+    ): Result<OrderEntity> {
+        if (!pkg.isDonation) {
+            return Result.failure(IllegalArgumentException("Only dedicated charity packages can be claimed as donations."))
+        }
+        if (pkg.quantityAvailable < quantity) {
+            return Result.failure(IllegalStateException("Package is fully claimed or insufficient quantity available."))
+        }
+        val updated = db.foodPackageDao().decrementStock(pkg.id, quantity)
+        if (updated <= 0) {
+            return Result.failure(IllegalStateException("Could not allocate donation stock."))
+        }
+
+        val randomPinPart1 = kotlin.random.Random.nextInt(100, 999)
+        val randomPinPart2 = kotlin.random.Random.nextInt(100, 999)
+        val pickupPin = "$randomPinPart1-$randomPinPart2"
+        val orderShortId = kotlin.random.Random.nextInt(1000, 9999)
+        val orderNumber = "#NGO-$orderShortId"
+        val orderId = "ngo_${java.util.UUID.randomUUID().toString().take(8)}"
+        val qrPayload = "SAVEBITE:NGO_CLAIM:$orderId:$pickupPin"
+
+        val order = OrderEntity(
+            id = orderId,
+            orderNumber = orderNumber,
+            customerId = ngoUser.id,
+            customerName = "${ngoUser.name} (NGO)",
+            merchantId = merchant.id,
+            merchantName = merchant.businessName,
+            packageId = pkg.id,
+            packageTitle = "[Charity] ${pkg.title}",
+            quantity = quantity,
+            totalPrice = 0.0,
+            totalSavings = pkg.originalPrice * quantity,
+            pickupPin = pickupPin,
+            qrPayload = qrPayload,
+            status = OrderStatus.READY_FOR_PICKUP,
+            pickupWindow = pkg.pickupWindow,
+            co2SavedKg = pkg.co2SavedKg * quantity,
+            reservedAt = System.currentTimeMillis(),
+            paymentMethod = "ANNADAAN_DONATION",
+            razorpayPaymentId = null
+        )
+
+        db.orderDao().insertOrder(order)
+        return Result.success(order)
+    }
+
     suspend fun verifyAndCompletePickup(inputQuery: String): Result<OrderEntity> {
         val sanitized = inputQuery.trim()
         val order = db.orderDao().findOrderByPinOrQr(sanitized, sanitized)
@@ -379,6 +457,8 @@ class SaveBiteRepository(private val db: SaveBiteDatabase) {
     }
 
     fun getAllOrders(): Flow<List<OrderEntity>> = db.orderDao().getAllOrders()
+
+    fun getPickupAgentOrders(): Flow<List<OrderEntity>> = db.orderDao().getPickupAgentOrders()
 
     fun getAllUsers(): Flow<List<UserEntity>> = db.userDao().getAllUsers()
 

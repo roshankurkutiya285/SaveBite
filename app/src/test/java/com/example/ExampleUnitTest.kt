@@ -1,8 +1,6 @@
 package com.example
 
-import com.example.data.local.entity.UserEntity
 import com.example.data.model.UserRole
-import com.example.util.JwtManager
 import com.example.util.PasswordHasher
 import com.example.util.formatRupees
 import org.junit.Assert.*
@@ -47,7 +45,7 @@ class ExampleUnitTest {
     assertTrue("Dispatch should succeed", res.isSuccess)
     val info = res.getOrNull()
     assertNotNull("Info should not be null", info)
-    val code = info!!.code
+    val code = checkNotNull(info?.code)
     assertEquals(6, code.length)
 
     // Retrieval of active code

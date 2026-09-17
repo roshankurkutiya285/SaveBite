@@ -6,31 +6,29 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Nature
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,38 +53,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import com.example.data.model.UserRole
+import com.example.ui.AdminViewModel
 import com.example.ui.CelebrationEvent
+import com.example.ui.CustomerViewModel
+import com.example.ui.MerchantViewModel
 import com.example.ui.SaveBiteTab
 import com.example.ui.SaveBiteViewModel
 import com.example.ui.components.CelebrationDialog
 import com.example.ui.components.RazorpayCheckoutSheet
 import com.example.ui.screens.AccessDeniedScreen
-import com.example.ui.screens.CustomerPickupsScreen
-import com.example.ui.screens.PickupPartnerDashboardScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CustomerHomeScreen
+import com.example.ui.screens.CustomerPickupsScreen
 import com.example.ui.screens.ImpactScreen
 import com.example.ui.screens.MerchantDashboardScreen
 import com.example.ui.screens.NgoDashboardScreen
-import com.example.ui.screens.PickupsDashboardScreen
 import com.example.ui.screens.PackageDetailScreen
+import com.example.ui.screens.PickupPartnerDashboardScreen
 import com.example.ui.screens.ProfileScreen
-import com.example.ui.theme.AppColorPalette
 import com.example.ui.theme.AppThemeMode
-import com.example.ui.theme.SaveBiteAmber
 import com.example.ui.theme.SaveBiteEmerald
 import com.example.ui.theme.SaveBiteTheme
 import com.example.util.SoundHapticsManager
@@ -94,10 +87,16 @@ import com.example.util.SoundHapticsManager
 class MainActivity : ComponentActivity() {
 
     private val viewModel: SaveBiteViewModel by viewModels()
+    private val customerViewModel: CustomerViewModel by viewModels()
+    private val merchantViewModel: MerchantViewModel by viewModels()
+    private val adminViewModel: AdminViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Wire the session hub to role-scoped ViewModels
+        viewModel.bindChildViewModels(customerViewModel, merchantViewModel, adminViewModel)
 
         setContent {
             val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
@@ -109,7 +108,12 @@ class MainActivity : ComponentActivity() {
             }
 
             SaveBiteTheme(palette = colorPalette, darkTheme = isDark) {
-                SaveBiteApp(viewModel = viewModel)
+                SaveBiteApp(
+                    viewModel = viewModel,
+                    customerViewModel = customerViewModel,
+                    merchantViewModel = merchantViewModel,
+                    adminViewModel = adminViewModel,
+                )
             }
         }
     }
@@ -117,19 +121,32 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SaveBiteApp(viewModel: SaveBiteViewModel) {
+fun SaveBiteApp(
+    viewModel: SaveBiteViewModel,
+    customerViewModel: CustomerViewModel,
+    merchantViewModel: MerchantViewModel,
+    adminViewModel: AdminViewModel,
+) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
     val celebrationEvent by viewModel.celebrationEvent.collectAsStateWithLifecycle()
     val activeOtpDispatch by viewModel.activeOtpDispatch.collectAsStateWithLifecycle()
     val activeJwtToken by viewModel.activeJwtToken.collectAsStateWithLifecycle()
-    val pendingRazorpayOrder by viewModel.pendingRazorpayOrder.collectAsStateWithLifecycle()
+    val pendingRazorpayOrder by customerViewModel.pendingRazorpayOrder.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(snackbarMessage) {
-        snackbarMessage?.let {
+    val customerSnackbar by customerViewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val merchantSnackbar by merchantViewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val adminSnackbar by adminViewModel.snackbarMessage.collectAsStateWithLifecycle()
+    val activeSnackbar = snackbarMessage ?: customerSnackbar ?: merchantSnackbar ?: adminSnackbar
+
+    LaunchedEffect(activeSnackbar) {
+        activeSnackbar?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearSnackbar()
+            customerViewModel.clearSnackbar()
+            merchantViewModel.clearSnackbar()
+            adminViewModel.clearSnackbar()
         }
     }
 
@@ -162,17 +179,18 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
         // Logged-in user: Show role-based dashboard!
         val user = currentUser!!
         val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
-        val packagesWithMerchants by viewModel.filteredPackages.collectAsStateWithLifecycle()
+        val packagesWithMerchants by customerViewModel.filteredPackages.collectAsStateWithLifecycle()
         val allPackages by viewModel.allPackages.collectAsStateWithLifecycle()
         val allMerchants by viewModel.allMerchants.collectAsStateWithLifecycle()
         val allOrders by viewModel.allOrders.collectAsStateWithLifecycle()
-        val allUsers by viewModel.allUsers.collectAsStateWithLifecycle()
+        val pickupAgentOrders by viewModel.pickupAgentOrders.collectAsStateWithLifecycle()
+        val allUsers by adminViewModel.allUsers.collectAsStateWithLifecycle()
         val selectedMerchantStoreId by viewModel.selectedMerchantStoreId.collectAsStateWithLifecycle()
-        val customerOrders by viewModel.customerOrders.collectAsStateWithLifecycle()
-        val merchantOrders by viewModel.merchantOrders.collectAsStateWithLifecycle()
-        val favoriteIds by viewModel.favoriteMerchantIds.collectAsStateWithLifecycle()
-        val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-        val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+        val customerOrders by customerViewModel.customerOrders.collectAsStateWithLifecycle()
+        val merchantOrders by merchantViewModel.merchantOrders.collectAsStateWithLifecycle()
+        val favoriteIds by customerViewModel.favoriteMerchantIds.collectAsStateWithLifecycle()
+        val searchQuery by customerViewModel.searchQuery.collectAsStateWithLifecycle()
+        val selectedCategory by customerViewModel.selectedCategory.collectAsStateWithLifecycle()
         val selectedPackage by viewModel.selectedPackage.collectAsStateWithLifecycle()
         val selectedMerchant by viewModel.selectedMerchant.collectAsStateWithLifecycle()
         val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
@@ -415,11 +433,13 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         onSelectThemeMode = { viewModel.setThemeMode(it) },
                         onBack = {
                             viewModel.selectTab(
-                                when (user.role) {
-                                    UserRole.CUSTOMER, UserRole.NGO -> SaveBiteTab.CUSTOMER
-                                    UserRole.BAKERY, UserRole.RESTAURANT, UserRole.CAFE, UserRole.SUPERMARKET -> SaveBiteTab.MERCHANT_HUB
-                                    UserRole.PICKUP_AGENT -> SaveBiteTab.PICKUPS
-                                    UserRole.ADMIN -> SaveBiteTab.ADMIN
+                                when {
+                                    user.role == UserRole.CUSTOMER -> SaveBiteTab.CUSTOMER
+                                    user.role == UserRole.NGO -> SaveBiteTab.NGO
+                                    user.role.isMerchant -> SaveBiteTab.MERCHANT_HUB
+                                    user.role == UserRole.PICKUP_AGENT -> SaveBiteTab.PICKUPS
+                                    user.role == UserRole.ADMIN -> SaveBiteTab.ADMIN
+                                    else -> SaveBiteTab.CUSTOMER
                                 }
                             )
                         },
@@ -441,7 +461,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         onReturnHome = { viewModel.selectTab(SaveBiteTab.CUSTOMER) },
                         onLogout = { viewModel.logout() }
                     )
-                } else if (currentTab == SaveBiteTab.MERCHANT_HUB && user.role != UserRole.BAKERY && user.role != UserRole.RESTAURANT && user.role != UserRole.CAFE && user.role != UserRole.SUPERMARKET) {
+                } else if (currentTab == SaveBiteTab.MERCHANT_HUB && !user.role.isMerchant) {
                     AccessDeniedScreen(
                         currentRole = user.role,
                         requiredRole = "Merchant Kitchen Partner",
@@ -457,7 +477,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                     merchant = selectedMerchant,
                                     onBack = { viewModel.selectPackage(null) },
                                     onReserve = { quantity ->
-                                        viewModel.initiateRazorpayCheckout(selectedPackage!!, quantity)
+                                        customerViewModel.initiateRazorpayCheckout(selectedPackage!!, quantity)
                                     }
                                 )
                             } else {
@@ -466,23 +486,23 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                         CustomerHomeScreen(
                                             packages = packagesWithMerchants,
                                             searchQuery = searchQuery,
-                                            onSearchChange = { viewModel.setSearchQuery(it) },
+                                            onSearchChange = { customerViewModel.setSearchQuery(it) },
                                             selectedCategory = selectedCategory,
-                                            onCategorySelect = { viewModel.selectCategory(it) },
+                                            onCategorySelect = { customerViewModel.selectCategory(it) },
                                             favoriteIds = favoriteIds,
-                                            onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                            onToggleFavorite = { customerViewModel.toggleFavorite(it) },
                                             onPackageClick = { viewModel.selectPackage(it) },
-                                            onApplyWelcomeBenefit = { viewModel.applyWelcomeBenefitCode() }
+                                            onApplyWelcomeBenefit = { customerViewModel.applyWelcomeBenefitCode() }
                                         )
                                     }
                                     SaveBiteTab.PICKUPS -> {
                                         CustomerPickupsScreen(
                                             orders = customerOrders,
                                             onCancelOrder = { orderId ->
-                                                viewModel.cancelOrder(orderId)
+                                                customerViewModel.cancelOrder(orderId)
                                             },
                                             onSubmitFeedback = { orderId, rating, reviewText, reviewTags ->
-                                                viewModel.submitOrderFeedback(orderId, rating, reviewText, reviewTags)
+                                                customerViewModel.submitOrderFeedback(orderId, rating, reviewText, reviewTags)
                                             },
                                             onExploreClick = { viewModel.selectTab(SaveBiteTab.CUSTOMER) }
                                         )
@@ -512,11 +532,11 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                         CustomerHomeScreen(
                                             packages = packagesWithMerchants,
                                             searchQuery = searchQuery,
-                                            onSearchChange = { viewModel.setSearchQuery(it) },
+                                            onSearchChange = { customerViewModel.setSearchQuery(it) },
                                             selectedCategory = selectedCategory,
-                                            onCategorySelect = { viewModel.selectCategory(it) },
+                                            onCategorySelect = { customerViewModel.selectCategory(it) },
                                             favoriteIds = favoriteIds,
-                                            onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                            onToggleFavorite = { customerViewModel.toggleFavorite(it) },
                                             onPackageClick = { viewModel.selectPackage(it) }
                                         )
                                     }
@@ -531,10 +551,8 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                             } else emptyList()
 
                             val storeOrders = if (userMerchant != null) {
-                                merchantOrders.filter { order ->
-                                    order.merchantName.equals(userMerchant.businessName, ignoreCase = true) ||
-                                    storePackages.any { pkg -> pkg.title == order.packageTitle }
-                                }
+                                // Filter by merchantId (stable, permanent ID) — NOT by business name which can change
+                                merchantOrders.filter { order -> order.merchantId == userMerchant.id }
                             } else emptyList()
 
                             MerchantDashboardScreen(
@@ -543,26 +561,26 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                 packages = storePackages,
                                 merchantOrders = storeOrders,
                                 onRegisterShop = { businessName, businessType, description, address, pickupInstructions, coverEmoji ->
-                                    viewModel.registerMerchantShop(businessName, businessType, description, address, pickupInstructions, coverEmoji)
+                                    merchantViewModel.registerMerchantShop(user.id, businessName, businessType, description, address, pickupInstructions, coverEmoji) {}
                                 },
                                 onHandoverToPartner = { orderId ->
-                                    viewModel.markOrderReadyForPickup(orderId)
+                                    merchantViewModel.markOrderReadyForPickup(orderId)
                                 },
                                 onRedeemCode = { code ->
-                                    viewModel.redeemOrder(code) { _, _ -> }
+                                    merchantViewModel.redeemOrder(code) { _, _ -> }
                                 },
                                 onCreatePackage = { title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl ->
-                                    viewModel.createMerchantSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl)
+                                    merchantViewModel.createSurplusBag(title, desc, cat, orig, disc, qty, window, tags, isDonation, imgUrl)
                                 },
-                                onUpdateStock = { pkgId, newQty -> viewModel.updatePackageStock(pkgId, newQty) }
+                                onUpdateStock = { pkgId, newQty -> merchantViewModel.updatePackageStock(pkgId, newQty) }
                             )
                         }
 
                         UserRole.PICKUP_AGENT -> {
                             PickupPartnerDashboardScreen(
-                                orders = allOrders,
+                                orders = pickupAgentOrders,
                                 onSimulateRedeem = { pin ->
-                                    viewModel.redeemOrder(pin) { _, _ -> }
+                                    merchantViewModel.redeemOrder(pin) { _, _ -> }
                                 }
                             )
                         }
@@ -574,12 +592,12 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                 orders = allOrders,
                                 users = allUsers,
                                 onToggleMerchantVerification = { merchantId, verified ->
-                                    viewModel.updateMerchantVerification(merchantId, verified)
+                                    adminViewModel.verifyMerchant(merchantId, verified)
                                 },
-                                onRestockAll = { viewModel.restockAllPackages() },
-                                onGenerateDemoOrder = { viewModel.generateDemoTestOrder() },
+                                onRestockAll = { adminViewModel.restockAllPackages() },
+                                onGenerateDemoOrder = { adminViewModel.generateDemoTestOrder() },
                                 onEmergencyNgoBroadcast = { title, qty, location ->
-                                    viewModel.dispatchEmergencyNgoAlert(title, qty, location)
+                                    merchantViewModel.dispatchEmergencyNgoAlert(title, qty, location)
                                 }
                             )
                         }
@@ -587,11 +605,11 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         UserRole.NGO -> {
                             NgoDashboardScreen(
                                 ngoName = user.name,
-                                donationPackages = allPackages,
+                                donationPackages = allPackages.filter { it.isDonation },
                                 onClaimDonation = { pkgId ->
                                     val pkg = allPackages.find { it.id == pkgId }
                                     if (pkg != null) {
-                                        viewModel.reservePackage(pkg, 1)
+                                        viewModel.claimDonationPackage(pkg, 1)
                                     }
                                 },
                                 onLogout = { viewModel.logout() }
@@ -609,7 +627,7 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         iconEmoji = event.iconEmoji,
                         statHighlight = event.statHighlight,
                         isBadgeUnlock = event.isBadgeUnlock,
-                        onDismiss = { viewModel.dismissCelebration() }
+                        onDismiss = { viewModel.dismissCelebration(); customerViewModel.dismissCelebration() }
                     )
                 }
 
@@ -618,13 +636,13 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                     RazorpayCheckoutSheet(
                         order = order,
                         onPaymentSuccess = { result ->
-                            viewModel.onRazorpayPaymentSuccess(result)
+                            customerViewModel.onRazorpayPaymentSuccess(result)
                         },
                         onPaymentFailed = { _ ->
-                            viewModel.dismissRazorpayCheckout()
+                            customerViewModel.dismissRazorpayCheckout()
                         },
                         onDismiss = {
-                            viewModel.dismissRazorpayCheckout()
+                            customerViewModel.dismissRazorpayCheckout()
                         }
                     )
                 }

@@ -43,4 +43,10 @@ interface OrderDao {
 
     @Query("UPDATE orders SET rating = :rating, reviewText = :reviewText, reviewTags = :reviewTags WHERE id = :orderId")
     suspend fun updateOrderFeedback(orderId: String, rating: Int, reviewText: String, reviewTags: String): Int
+
+    @Query("UPDATE orders SET status = 'CANCELLED' WHERE customerId = :customerId AND status IN ('RESERVED', 'READY_FOR_PICKUP')")
+    suspend fun cancelActiveOrdersByCustomer(customerId: String)
+
+    @Query("SELECT * FROM orders WHERE status IN ('READY_FOR_PICKUP', 'COMPLETED') ORDER BY reservedAt DESC")
+    fun getPickupAgentOrders(): Flow<List<OrderEntity>>
 }

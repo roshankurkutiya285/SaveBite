@@ -33,8 +33,8 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         FavoriteEntity::class
     ],
-    version = 10,
-    exportSchema = false
+    version = 11,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class SaveBiteDatabase : RoomDatabase() {
@@ -60,14 +60,20 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     SaveBiteDatabase::class.java,
-                    "savebite_enterprise_db_v10"
+                    "savebite_enterprise_db_v11"
                 )
+                    .addMigrations(MIGRATION_10_11)
                     .fallbackToDestructiveMigration()
                     .addCallback(DatabaseCallback())
                     .build()
                 INSTANCE = instance
                 instance
             }
+        }
+
+        private val MIGRATION_10_11 = androidx.room.migration.Migration(10, 11) {
+            // Add userId index to merchants table for O(log n) merchant-by-user lookups
+            it.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_merchants_userId` ON `merchants` (`userId`)")
         }
 
         private class DatabaseCallback : RoomDatabase.Callback() {
@@ -110,6 +116,43 @@ abstract class SaveBiteDatabase : RoomDatabase() {
                     name = "Chef Tanvi Reddy",
                     phone = "+91 97410 88901",
                     role = UserRole.RESTAURANT,
+                    isEmailVerified = true
+                ),
+                // Fixed H-11: These users were missing from seeder, causing orphaned merchant records
+                UserEntity(
+                    id = "user_merchant_punjab",
+                    email = "arjun.punjabgrill@savebite.in",
+                    password = defaultPasswordHash,
+                    name = "Chef Arjun Kapoor",
+                    phone = "+91 98001 33445",
+                    role = UserRole.RESTAURANT,
+                    isEmailVerified = true
+                ),
+                UserEntity(
+                    id = "user_merchant_biryani",
+                    email = "siddharth@paradisebiryani.in",
+                    password = defaultPasswordHash,
+                    name = "Chef Siddharth Rao",
+                    phone = "+91 94455 66778",
+                    role = UserRole.RESTAURANT,
+                    isEmailVerified = true
+                ),
+                UserEntity(
+                    id = "user_merchant_cafe",
+                    email = "rustom@iranicafe.in",
+                    password = defaultPasswordHash,
+                    name = "Rustom Irani",
+                    phone = "+91 98220 11223",
+                    role = UserRole.CAFE,
+                    isEmailVerified = true
+                ),
+                UserEntity(
+                    id = "user_merchant_market",
+                    email = "suresh@apnisabzi.in",
+                    password = defaultPasswordHash,
+                    name = "Suresh Kumar",
+                    phone = "+91 97330 44556",
+                    role = UserRole.SUPERMARKET,
                     isEmailVerified = true
                 ),
                 UserEntity(

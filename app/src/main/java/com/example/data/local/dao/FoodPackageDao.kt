@@ -45,4 +45,7 @@ interface FoodPackageDao {
 
     @Query("UPDATE food_packages SET quantityAvailable = initialQuantity WHERE isActive = 1")
     suspend fun restockAllPackages(): Int
+
+    @Query("UPDATE food_packages SET isActive = 0 WHERE merchantId = :merchantId")
+    suspend fun deactivatePackagesByMerchant(merchantId: String): Int
 }

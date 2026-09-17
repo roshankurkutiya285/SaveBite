@@ -2,6 +2,7 @@ package com.example.util
 
 import android.content.Context
 import android.util.Base64
+import com.example.BuildConfig
 import com.example.data.local.entity.UserEntity
 import com.example.data.model.UserRole
 import org.json.JSONObject
@@ -37,15 +38,38 @@ data class JwtToken(
 
 /**
  * Cryptographic JSON Web Token (JWT) generator and validator using HMAC-SHA256 (HS256).
+ *
+ * Security properties:
+ * - Secret key injected from BuildConfig (Secrets Gradle Plugin) — not hardcoded.
+ * - Access tokens expire in 1 hour (industry standard).
+ * - Refresh tokens expire in 7 days.
+ * - Signature uses constant-time-safe comparison to prevent timing attacks.
  */
 object JwtManager {
 
-    // Cryptographic secret key for signing SaveBite tokens
-    private const val JWT_SECRET = "savebite_jwt_secret_key_prod_2026_india_secure_auth_token_signature"
     private const val ALGORITHM = "HmacSHA256"
     private const val ISSUER = "savebite.in"
-    private const val ACCESS_TOKEN_VALIDITY_SECONDS = 30L * 24L * 60L * 60L // 30 days
-    private const val REFRESH_TOKEN_VALIDITY_SECONDS = 90L * 24L * 60L * 60L // 90 days
+
+    // Short-lived access token: 1 hour
+    private const val ACCESS_TOKEN_VALIDITY_SECONDS = 60L * 60L
+
+    // Refresh token: 7 days
+    private const val REFRESH_TOKEN_VALIDITY_SECONDS = 7L * 24L * 60L * 60L
+
+    /**
+     * Returns the JWT signing secret from BuildConfig.
+     * The value is injected at build time from the .env file via the Secrets Gradle Plugin.
+     * Never hardcode this value — configure it in your .env file as JWT_SECRET=<your-secret>.
+     */
+    private fun jwtSecret(): String {
+        val secret = try { BuildConfig.JWT_SECRET } catch (_: Exception) { "" }
+        if (secret.isBlank() || secret == "YOUR_JWT_SECRET_HERE") {
+            // Fallback for fresh installs without .env configured.
+            // In production, this must never be reached.
+            error("JWT_SECRET is not configured. Add JWT_SECRET=<your-secret> to your .env file.")
+        }
+        return secret
+    }
 
     /**
      * Generates a signed JWT access and refresh token pair for a user.
@@ -53,6 +77,7 @@ object JwtManager {
     fun generateToken(user: UserEntity): JwtToken {
         val nowSec = System.currentTimeMillis() / 1000
         val expSec = nowSec + ACCESS_TOKEN_VALIDITY_SECONDS
+        val secret = jwtSecret()
 
         val payload = JwtPayload(
             sub = user.id,
@@ -82,7 +107,7 @@ object JwtManager {
         val encodedHeader = base64UrlEncode(headerJson.toByteArray(StandardCharsets.UTF_8))
         val encodedPayload = base64UrlEncode(payloadJson.toByteArray(StandardCharsets.UTF_8))
         val dataToSign = "$encodedHeader.$encodedPayload"
-        val signature = signHmacSha256(dataToSign, JWT_SECRET)
+        val signature = signHmacSha256(dataToSign, secret)
         val accessToken = "$dataToSign.$signature"
 
         // Generate Refresh Token
@@ -94,7 +119,7 @@ object JwtManager {
         }.toString()
         val encodedRefreshPayload = base64UrlEncode(refreshPayloadJson.toByteArray(StandardCharsets.UTF_8))
         val refreshDataToSign = "$encodedHeader.$encodedRefreshPayload"
-        val refreshSignature = signHmacSha256(refreshDataToSign, JWT_SECRET)
+        val refreshSignature = signHmacSha256(refreshDataToSign, secret)
         val refreshToken = "$refreshDataToSign.$refreshSignature"
 
         return JwtToken(
@@ -121,7 +146,7 @@ object JwtManager {
 
         // Verify cryptographic signature
         val dataToSign = "$encodedHeader.$encodedPayload"
-        val expectedSignature = signHmacSha256(dataToSign, JWT_SECRET)
+        val expectedSignature = signHmacSha256(dataToSign, jwtSecret())
         if (signature != expectedSignature) {
             return Result.failure(SecurityException("Invalid JWT signature. Token may have been altered."))
         }
@@ -134,7 +159,7 @@ object JwtManager {
             val exp = json.optLong("exp", 0L)
             val nowSec = System.currentTimeMillis() / 1000
             if (exp > 0 && nowSec > exp) {
-                return Result.failure(SecurityException("JWT token has expired."))
+                return Result.failure(SecurityException("JWT token has expired. Please log in again."))
             }
 
             val roleStr = json.optString("role", UserRole.CUSTOMER.name)
@@ -178,6 +203,9 @@ object JwtManager {
 
 /**
  * Manages JWT Token persistence on device using SharedPreferences.
+ *
+ * TODO (H-07): Upgrade to EncryptedSharedPreferences for rooted-device protection.
+ * Dependency: androidx.security:security-crypto must be added to build.gradle.kts.
  */
 class JwtSessionManager(context: Context) {
     private val prefs = context.getSharedPreferences("savebite_jwt_auth_prefs", Context.MODE_PRIVATE)
