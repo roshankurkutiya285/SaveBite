@@ -73,6 +73,8 @@ import com.example.ui.SaveBiteViewModel
 import com.example.ui.components.CelebrationDialog
 import com.example.ui.components.RazorpayCheckoutSheet
 import com.example.ui.screens.AccessDeniedScreen
+import com.example.ui.screens.CustomerPickupsScreen
+import com.example.ui.screens.PickupPartnerDashboardScreen
 import com.example.ui.screens.AdminDashboardScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.CustomerHomeScreen
@@ -474,11 +476,8 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                                         )
                                     }
                                     SaveBiteTab.PICKUPS -> {
-                                        PickupsDashboardScreen(
+                                        CustomerPickupsScreen(
                                             orders = customerOrders,
-                                            onSimulateRedeem = { pin ->
-                                                viewModel.redeemOrder(pin) { _, _ -> }
-                                            },
                                             onCancelOrder = { orderId ->
                                                 viewModel.cancelOrder(orderId)
                                             },
@@ -560,15 +559,11 @@ fun SaveBiteApp(viewModel: SaveBiteViewModel) {
                         }
 
                         UserRole.PICKUP_AGENT -> {
-                            PickupsDashboardScreen(
+                            PickupPartnerDashboardScreen(
                                 orders = allOrders,
                                 onSimulateRedeem = { pin ->
                                     viewModel.redeemOrder(pin) { _, _ -> }
-                                },
-                                onCancelOrder = { orderId ->
-                                    viewModel.cancelOrder(orderId)
-                                },
-                                onExploreClick = { }
+                                }
                             )
                         }
 
